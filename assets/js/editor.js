@@ -270,6 +270,7 @@
       (opts.tags || []).join(', ') + '"></div>' +
       '<div class="editor-status" id="ed-status">esc \u2192 command mode \u00b7 :w save \u00b7 :q quit \u00b7 :t toggle type</div>';
 
+    ov.setAttribute('tabindex', '-1');
     ov.appendChild(box);
     document.body.appendChild(ov);
 
@@ -313,8 +314,11 @@
           tags: document.getElementById('ed-tags').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean)
         };
         opts.onSave(result).then(function() {
-          status.textContent = 'committed. reload in ~15s to see changes.';
-          if (cmd === 'wq') setTimeout(function() { cleanup(); }, 2000);
+          if (cmd === 'wq') {
+            cleanup();
+          } else {
+            status.textContent = 'committed. reload in ~15s to see changes.';
+          }
         }).catch(function(err) {
           status.textContent = 'error: ' + err.message;
           if (err.message.indexOf('401') > -1 || err.message.indexOf('403') > -1) {
@@ -344,7 +348,7 @@
         else if (e.key.length === 1) { cmdBuf += e.key; status.textContent = ':' + cmdBuf; }
         return;
       }
-      if (e.key === 'Escape') { e.preventDefault(); cmdMode = true; cmdBuf = ''; status.textContent = ':'; ta.blur(); }
+      if (e.key === 'Escape') { e.preventDefault(); cmdMode = true; cmdBuf = ''; status.textContent = ':'; ta.blur(); ov.focus(); }
     });
   }
 
