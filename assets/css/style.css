@@ -6,31 +6,34 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
 
 :root {
-  --bg:        #0a0e0a;
+  --bg: #0a0e0a;
   --bg-raised: #111611;
-  --fg:        #c8e6c9;
-  --fg-dim:    #6b8a6b;
-  --accent:    #39ff14;
-  --accent-2:  #ff6e40;
-  --link:      #69f0ae;
-  --link-hover:#b9f6ca;
-  --border:    #2e4a2e;
-  --tag-bg:    #1a2e1a;
-  --spoken:    #ffab40;
-  --written:   #80cbc4;
-
+  --fg: #c8e6c9;
+  --fg-dim: #6b8a6b;
+  --accent: #39ff14;
+  --accent-2: #ff6e40;
+  --link: #69f0ae;
+  --link-hover: #b9f6ca;
+  --border: #2e4a2e;
+  --tag-bg: #1a2e1a;
+  --spoken: #ffab40;
+  --written: #80cbc4;
   --font: 'IBM Plex Mono', 'Courier New', monospace;
   --max-width: 900px;
   --gutter: 1.5rem;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
-html { font-size: 14px; }
+html {
+  font-size: 14px;
+}
 
 body {
   font-family: var(--font);
@@ -91,7 +94,7 @@ header {
   align-items: start;
 }
 
-@media (max-width: 650px) {
+@media (width <= 650px) {
   .shell-layout {
     grid-template-columns: 1fr;
     gap: 2rem;
@@ -174,13 +177,29 @@ header {
 }
 
 /* color entry rows by type */
-.ls-table tbody tr.spoken a { color: var(--spoken); }
-.ls-table tbody tr.spoken a:hover { color: #ffcc80; }
-.ls-table tbody tr.spoken .ls-desc { color: #b57a2a; }
+.ls-table tbody tr.spoken a {
+  color: var(--spoken);
+}
 
-.ls-table tbody tr.written a { color: var(--written); }
-.ls-table tbody tr.written a:hover { color: #b2dfdb; }
-.ls-table tbody tr.written .ls-desc { color: #5f9ea0; }
+.ls-table tbody tr.spoken a:hover {
+  color: #ffcc80;
+}
+
+.ls-table tbody tr.spoken .ls-desc {
+  color: #b57a2a;
+}
+
+.ls-table tbody tr.written a {
+  color: var(--written);
+}
+
+.ls-table tbody tr.written a:hover {
+  color: #b2dfdb;
+}
+
+.ls-table tbody tr.written .ls-desc {
+  color: #5f9ea0;
+}
 
 /* year/month group headers */
 .ls-group-year td {
@@ -222,8 +241,13 @@ header {
   letter-spacing: 0.04em;
 }
 
-.ls-type.spoken { color: var(--spoken); }
-.ls-type.written { color: var(--written); }
+.ls-type.spoken {
+  color: var(--spoken);
+}
+
+.ls-type.written {
+  color: var(--written);
+}
 
 .ls-desc {
   color: var(--fg-dim);
@@ -258,8 +282,13 @@ header {
   letter-spacing: 0.05em;
 }
 
-.post-type.spoken { color: var(--spoken); }
-.post-type.written { color: var(--written); }
+.post-type.spoken {
+  color: var(--spoken);
+}
+
+.post-type.written {
+  color: var(--written);
+}
 
 .post-content h1 {
   font-size: 1.3rem;
@@ -345,7 +374,8 @@ header {
 
 .viz-embed .viz-label {
   position: absolute;
-  top: 0; left: 0;
+  top: 0;
+  left: 0;
   background: var(--accent);
   color: var(--bg);
   font-size: 0.55rem;
@@ -390,7 +420,9 @@ header {
   color: var(--link-hover);
 }
 
-.post-nav .next { margin-left: auto; }
+.post-nav .next {
+  margin-left: auto;
+}
 
 /* === VIM HINT === */
 
@@ -430,7 +462,7 @@ footer {
 .editor-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.88);
+  background: rgb(0 0 0 / 88%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -460,16 +492,27 @@ footer {
   color: var(--fg-dim);
 }
 
-.editor-path { color: var(--fg); }
+.editor-path {
+  color: var(--fg);
+}
 
 .editor-type {
   font-size: 0.65rem;
   letter-spacing: 0.05em;
   cursor: pointer;
 }
-.editor-type:hover { opacity: 0.7; }
-.editor-type.spoken { color: var(--spoken); }
-.editor-type.written { color: var(--written); }
+
+.editor-type:hover {
+  opacity: 0.7;
+}
+
+.editor-type.spoken {
+  color: var(--spoken);
+}
+
+.editor-type.written {
+  color: var(--written);
+}
 
 .editor-fields {
   flex: 1;
@@ -520,8 +563,8 @@ footer {
 /* delete confirmation */
 .delete-header {
   background: #2a0a0a !important;
-  color: #ff4444 !important;
-  border-color: #ff4444 !important;
+  color: #f44 !important;
+  border-color: #f44 !important;
 }
 
 .delete-progress {
@@ -542,14 +585,19 @@ footer {
 }
 
 .delete-dot.active {
-  border-color: #ff4444;
-  color: #ff4444;
+  border-color: #f44;
+  color: #f44;
   background: #2a0a0a;
 }
 
 /* === RESPONSIVE === */
 
-@media (max-width: 650px) {
-  html { font-size: 13px; }
-  .tree-panel { min-width: unset; }
+@media (width <= 650px) {
+  html {
+    font-size: 13px;
+  }
+
+  .tree-panel {
+    min-width: unset;
+  }
 }

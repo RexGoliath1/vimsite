@@ -1,23 +1,22 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>log</title>
-  <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-  <header>
-    <pre class="logo" aria-hidden="true">log</pre>
-    <p class="tagline">spoken words &amp; waypoints</p>
-  </header>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>log</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+  </head>
+  <body>
+    <header>
+      <pre class="logo" aria-hidden="true">log</pre>
+      <p class="tagline">spoken words &amp; waypoints</p>
+    </header>
 
-  <div class="shell-layout">
-
-    <!-- LEFT: project tree -->
-    <aside class="tree-panel">
-      <p class="panel-header">~/projects $ tree</p>
-<pre class="tree-listing">.
+    <div class="shell-layout">
+      <!-- LEFT: project tree -->
+      <aside class="tree-panel">
+        <p class="panel-header">~/projects $ tree</p>
+        <pre class="tree-listing">.
 ├── <a href="#" class="tree-dir">ground-nav-drone/</a>
 │   ├── jetson-thor
 │   ├── multi-cam
@@ -35,76 +34,100 @@
     └── d3-charts
 
 3 directories, 12 items</pre>
-    </aside>
+      </aside>
 
-    <!-- RIGHT: post listing (ls -lt style) -->
-    <main class="ls-panel">
-      <p class="panel-header">~/log $ ls -lt</p>
-      <table class="ls-table">
-        <thead>
-          <tr>
-            <th>date</th>
-            <th>type</th>
-            <th>entry</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class="ls-group-year"><td colspan="3">2026</td></tr>
-          <tr class="ls-group-month"><td colspan="3">february</td></tr>
-          <!-- post-row -->
-          <tr class="spoken">
-            <td class="ls-date" data-date="2026-02-21">21</td>
-            <td class="ls-type spoken">spkn</td>
-            <td><a href="posts/entry-number-one.html">entry-number-one</a> <span class="ls-desc">— Hello, world, of course, more things to come.</span></td>
-          </tr>
-          <!-- /post-row -->
-          <!-- post-row -->
-          <tr class="spoken">
-            <td class="ls-date" data-date="2026-02-21">21</td>
-            <td class="ls-type spoken">spkn</td>
-            <td><a href="posts/test-drone-nav.html">test-drone-nav</a> <span class="ls-desc">— lorem ipsum drone navigation test post</span></td>
-          </tr>
-          <!-- /post-row -->
-          <!-- post-row -->
-          <tr class="written">
-            <td class="ls-date" data-date="2026-02-20">20</td>
-            <td class="ls-type written">writ</td>
-            <td><a href="posts/test-pension-data.html">test-pension-data</a> <span class="ls-desc">— lorem ipsum pension analysis test post</span></td>
-          </tr>
-          <!-- /post-row -->
-          <!-- post-row -->
-          <tr class="spoken">
-            <td class="ls-date" data-date="2026-02-19">19</td>
-            <td class="ls-type spoken">spkn</td>
-            <td><a href="posts/test-mtg-bot.html">test-mtg-bot</a> <span class="ls-desc">— lorem ipsum mtg reinforcement learning test post</span></td>
-          </tr>
-          <!-- /post-row -->
-          <!-- post-row -->
-          <tr class="written">
-            <td class="ls-date" data-date="2026-02-19">19</td>
-            <td class="ls-type written">writ</td>
-            <td><a href="posts/test-wasm-viz.html">test-wasm-viz</a> <span class="ls-desc">— lorem ipsum wasm visualization test post</span></td>
-          </tr>
-          <!-- /post-row -->
-          <!-- post-row -->
-          <tr class="spoken">
-            <td class="ls-date" data-date="2026-02-18">18</td>
-            <td class="ls-type spoken">spkn</td>
-            <td><a href="posts/hello-world.html">hello-world</a> <span class="ls-desc">— first entry, why spoken word, what's coming</span></td>
-          </tr>
-          <!-- /post-row -->
-        </tbody>
-      </table>
-      <p class="ls-count">6 entries</p>
-    </main>
+      <!-- RIGHT: post listing (ls -lt style) -->
+      <main class="ls-panel">
+        <p class="panel-header">~/log $ ls -lt</p>
+        <table class="ls-table">
+          <thead>
+            <tr>
+              <th>date</th>
+              <th>type</th>
+              <th>entry</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="ls-group-year">
+              <td colspan="3">2026</td>
+            </tr>
+            <tr class="ls-group-month">
+              <td colspan="3">february</td>
+            </tr>
+            <!-- post-row -->
+            <tr class="spoken">
+              <td class="ls-date" data-date="2026-02-21">21</td>
+              <td class="ls-type spoken">spkn</td>
+              <td>
+                <a href="posts/entry-number-one.html">entry-number-one</a>
+                <span class="ls-desc">— Hello, world, of course, more things to come.</span>
+              </td>
+            </tr>
+            <!-- /post-row -->
+            <!-- post-row -->
+            <tr class="spoken">
+              <td class="ls-date" data-date="2026-02-21">21</td>
+              <td class="ls-type spoken">spkn</td>
+              <td>
+                <a href="posts/test-drone-nav.html">test-drone-nav</a>
+                <span class="ls-desc">— lorem ipsum drone navigation test post</span>
+              </td>
+            </tr>
+            <!-- /post-row -->
+            <!-- post-row -->
+            <tr class="written">
+              <td class="ls-date" data-date="2026-02-20">20</td>
+              <td class="ls-type written">writ</td>
+              <td>
+                <a href="posts/test-pension-data.html">test-pension-data</a>
+                <span class="ls-desc">— lorem ipsum pension analysis test post</span>
+              </td>
+            </tr>
+            <!-- /post-row -->
+            <!-- post-row -->
+            <tr class="spoken">
+              <td class="ls-date" data-date="2026-02-19">19</td>
+              <td class="ls-type spoken">spkn</td>
+              <td>
+                <a href="posts/test-mtg-bot.html">test-mtg-bot</a>
+                <span class="ls-desc">— lorem ipsum mtg reinforcement learning test post</span>
+              </td>
+            </tr>
+            <!-- /post-row -->
+            <!-- post-row -->
+            <tr class="written">
+              <td class="ls-date" data-date="2026-02-19">19</td>
+              <td class="ls-type written">writ</td>
+              <td>
+                <a href="posts/test-wasm-viz.html">test-wasm-viz</a>
+                <span class="ls-desc">— lorem ipsum wasm visualization test post</span>
+              </td>
+            </tr>
+            <!-- /post-row -->
+            <!-- post-row -->
+            <tr class="spoken">
+              <td class="ls-date" data-date="2026-02-18">18</td>
+              <td class="ls-type spoken">spkn</td>
+              <td>
+                <a href="posts/hello-world.html">hello-world</a>
+                <span class="ls-desc">— first entry, why spoken word, what's coming</span>
+              </td>
+            </tr>
+            <!-- /post-row -->
+          </tbody>
+        </table>
+        <p class="ls-count">6 entries</p>
+      </main>
+    </div>
 
-  </div>
+    <footer>
+      <p class="vim-hint">
+        j/k ↑/↓ navigate · enter open · n new · e edit · d delete ·
+        <a href="https://vim.rtorr.com/" target="_blank" rel="noopener">vim?</a>
+      </p>
+      <p class="footer-eof">EOF</p>
+    </footer>
 
-  <footer>
-    <p class="vim-hint">j/k ↑/↓ navigate · enter open · n new · e edit · d delete · <a href="https://vim.rtorr.com/" target="_blank" rel="noopener">vim?</a></p>
-    <p class="footer-eof">EOF</p>
-  </footer>
-
-  <script src="assets/js/main.js"></script>
-</body>
+    <script src="assets/js/main.js"></script>
+  </body>
 </html>
