@@ -1,3 +1,5 @@
+// Cloudflare Workers Builds config — serves static site assets
+// preview_urls + workers_dev must be true for PR preview deployments
 {
   "name": "vimsite",
   "compatibility_date": "2026-02-21",
