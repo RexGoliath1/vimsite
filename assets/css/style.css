@@ -1,0 +1,359 @@
+/* ============================================
+   steven's log — style.css
+   terminal ls/tree aesthetic · fast-loading
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+
+:root {
+  --bg:        #0a0e0a;
+  --bg-raised: #111611;
+  --fg:        #c8e6c9;
+  --fg-dim:    #6b8a6b;
+  --accent:    #39ff14;
+  --accent-2:  #ff6e40;
+  --link:      #69f0ae;
+  --link-hover:#b9f6ca;
+  --border:    #2e4a2e;
+  --tag-bg:    #1a2e1a;
+  --spoken:    #ffab40;
+  --written:   #80cbc4;
+
+  --font: 'IBM Plex Mono', 'Courier New', monospace;
+  --max-width: 900px;
+  --gutter: 1.5rem;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html { font-size: 14px; }
+
+body {
+  font-family: var(--font);
+  font-weight: 400;
+  line-height: 1.7;
+  color: var(--fg);
+  background: var(--bg);
+  padding: var(--gutter);
+  max-width: var(--max-width);
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* === LINKS === */
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--link-hover);
+  text-decoration: underline;
+}
+
+/* === HEADER === */
+
+header {
+  margin-bottom: 2rem;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 1rem;
+}
+
+.logo {
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.tagline {
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+  font-style: italic;
+}
+
+/* === SHELL LAYOUT — tree left, ls right === */
+
+.shell-layout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2.5rem;
+  align-items: start;
+}
+
+@media (max-width: 650px) {
+  .shell-layout {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+
+/* === PANEL HEADERS (the "command" line) === */
+
+.panel-header {
+  font-size: 0.8rem;
+  color: var(--fg-dim);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-header::before {
+  content: '';
+}
+
+/* === TREE PANEL === */
+
+.tree-panel {
+  min-width: 220px;
+}
+
+.tree-listing {
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--fg-dim);
+  white-space: pre;
+}
+
+.tree-listing a.tree-dir {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.tree-listing a.tree-dir:hover {
+  color: var(--link-hover);
+}
+
+/* === LS PANEL (post listing) === */
+
+.ls-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.ls-table thead {
+  text-align: left;
+  color: var(--fg-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+
+.ls-table th {
+  padding: 0.3rem 0.75rem 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  font-weight: 400;
+}
+
+.ls-table td {
+  padding: 0.45rem 0.75rem 0.45rem 0;
+  border-bottom: 1px dashed var(--border);
+  vertical-align: top;
+}
+
+.ls-table tr {
+  transition: background 0.1s;
+}
+
+.ls-table tbody tr:hover {
+  background: var(--bg-raised);
+}
+
+.ls-table tbody tr.selected {
+  background: var(--bg-raised);
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.ls-date {
+  color: var(--fg-dim);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.ls-type {
+  white-space: nowrap;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.ls-type.spoken { color: var(--spoken); }
+.ls-type.written { color: var(--written); }
+
+.ls-desc {
+  color: var(--fg-dim);
+  font-size: 0.75rem;
+}
+
+.ls-count {
+  font-size: 0.7rem;
+  color: var(--fg-dim);
+  margin-top: 0.5rem;
+  padding-top: 0.35rem;
+}
+
+/* === POST CONTENT (single post pages) === */
+
+.post-content {
+  max-width: 640px;
+  line-height: 1.8;
+}
+
+.post-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--fg-dim);
+}
+
+.post-type {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+
+.post-type.spoken { color: var(--spoken); }
+.post-type.written { color: var(--written); }
+
+.post-content h1 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--fg);
+}
+
+.post-content h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 2rem 0 0.75rem;
+  color: var(--accent);
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 0.25rem;
+}
+
+.post-content p {
+  margin-bottom: 1.25rem;
+}
+
+.post-content code {
+  background: var(--tag-bg);
+  padding: 0.1em 0.3em;
+  border: 1px solid var(--border);
+  font-size: 0.9em;
+}
+
+.post-content pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.post-content blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1rem;
+  color: var(--fg-dim);
+  font-style: italic;
+  margin: 1.5rem 0;
+}
+
+.post-content img,
+.post-content figure {
+  max-width: 100%;
+  margin: 1.5rem 0;
+}
+
+.post-content figcaption {
+  font-size: 0.7rem;
+  color: var(--fg-dim);
+  font-style: italic;
+  margin-top: 0.35rem;
+}
+
+/* spoken-word transcript block */
+.spoken-transcript {
+  position: relative;
+  padding-left: 1.25rem;
+  border-left: 2px solid var(--spoken);
+}
+
+.spoken-label {
+  font-size: 0.65rem;
+  color: var(--spoken);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+
+/* viz embed — empty container, loads nothing by default */
+.viz-embed {
+  border: 1px solid var(--accent);
+  background: var(--bg);
+  margin: 2rem 0;
+  min-height: 300px;
+  position: relative;
+}
+
+.viz-embed .viz-label {
+  position: absolute;
+  top: 0; left: 0;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 0.55rem;
+  padding: 0.15em 0.5em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* post tags (bottom of posts) */
+.post-tags {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+
+.tag {
+  font-size: 0.6rem;
+  padding: 0.1em 0.45em;
+  background: var(--tag-bg);
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+  letter-spacing: 0.05em;
+}
+
+/* === FOOTER === */
+
+footer {
+  margin-top: 4rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border);
+  font-size: 0.7rem;
+  color: var(--fg-dim);
+}
+
+.footer-eof {
+  color: var(--border);
+  margin-top: 0.35rem;
+}
+
+/* === RESPONSIVE === */
+
+@media (max-width: 650px) {
+  html { font-size: 13px; }
+  .tree-panel { min-width: unset; }
+}

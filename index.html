@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>steven's log</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header>
+    <pre class="logo" aria-hidden="true">steven's log</pre>
+    <p class="tagline">spoken words &amp; waypoints — an engineer's notebook</p>
+  </header>
+
+  <div class="shell-layout">
+
+    <!-- LEFT: project tree -->
+    <aside class="tree-panel">
+      <p class="panel-header">~/projects $ tree</p>
+<pre class="tree-listing">.
+├── <a href="#" class="tree-dir">ground-nav-drone/</a>
+│   ├── jetson-thor
+│   ├── multi-cam
+│   └── factor-graph-slam
+├── <a href="#" class="tree-dir">mtg-rl-bot/</a>
+│   ├── forge-sim
+│   ├── synthetic-data
+│   └── alphastar-arch
+├── <a href="#" class="tree-dir">il-pension-study/</a>
+│   ├── unfunded-liability
+│   ├── risk-transfer
+│   └── legal-constraints
+└── <a href="viz.html" class="tree-dir">viz/</a>
+    ├── wasm-demos
+    ├── d3-charts
+    └── three-js
+
+4 directories, 12 items</pre>
+    </aside>
+
+    <!-- RIGHT: post listing (ls -lt style) -->
+    <main class="ls-panel">
+      <p class="panel-header">~/log $ ls -lt</p>
+      <table class="ls-table">
+        <thead>
+          <tr>
+            <th>date</th>
+            <th>type</th>
+            <th>entry</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- post-row -->
+          <tr>
+            <td class="ls-date">2026-02-18</td>
+            <td class="ls-type spoken">spkn</td>
+            <td><a href="posts/hello-world.html">hello-world</a> <span class="ls-desc">— first entry, why spoken word, what's coming</span></td>
+          </tr>
+          <!-- /post-row -->
+          <!-- post-row (upcoming — uncomment when post file exists)
+          <tr>
+            <td class="ls-date">2026-02-17</td>
+            <td class="ls-type written">writ</td>
+            <td><a href="posts/factor-graphs.html">factor-graphs-vs-ekfs</a> <span class="ls-desc">— why factor graphs will eat the nav world</span></td>
+          </tr>
+          /post-row -->
+        </tbody>
+      </table>
+      <p class="ls-count">1 entry</p>
+    </main>
+
+  </div>
+
+  <footer>
+    <p>built by hand · no frameworks harmed · © 2026 steven</p>
+    <p class="footer-eof">EOF</p>
+  </footer>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>
