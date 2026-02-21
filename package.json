@@ -1,0 +1,40 @@
+{
+  "name": "vimsite",
+  "version": "1.0.0",
+  "private": true,
+  "description": "steven's log — spoken words & waypoints",
+  "scripts": {
+    "build": "esbuild src/main.ts --outfile=assets/js/main.js --bundle=false --format=iife --target=es2020 && esbuild src/editor.ts --outfile=assets/js/editor.js --bundle=false --format=iife --target=es2020",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ && stylelint 'assets/css/**/*.css' && tsc --noEmit",
+    "lint:fix": "eslint src/ --fix && stylelint 'assets/css/**/*.css' --fix",
+    "format": "prettier --write 'src/**/*.ts' 'assets/css/**/*.css' '*.html' 'posts/**/*.html'",
+    "format:check": "prettier --check 'src/**/*.ts' 'assets/css/**/*.css' '*.html' 'posts/**/*.html'",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0",
+    "eslint": "^9.0.0",
+    "@eslint/js": "^9.0.0",
+    "typescript-eslint": "^8.0.0",
+    "stylelint": "^16.0.0",
+    "stylelint-config-standard": "^37.0.0",
+    "prettier": "^3.4.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0"
+  },
+  "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "assets/css/**/*.css": [
+      "stylelint --fix",
+      "prettier --write"
+    ],
+    "*.html": [
+      "prettier --write"
+    ]
+  }
+}
