@@ -182,10 +182,38 @@ header {
 .ls-table tbody tr.written a:hover { color: #b2dfdb; }
 .ls-table tbody tr.written .ls-desc { color: #5f9ea0; }
 
+/* year/month group headers */
+.ls-group-year td {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 1rem 0 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.ls-group-month td {
+  color: var(--fg-dim);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  padding: 0.4rem 0 0.2rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+.ls-group-year:hover,
+.ls-group-month:hover {
+  background: transparent !important;
+}
+
 .ls-date {
   color: var(--fg-dim);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+.j2000 {
+  color: var(--border);
+  font-size: 0.6rem;
+  margin-left: 0.4rem;
 }
 
 .ls-type {
