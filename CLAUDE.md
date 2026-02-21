@@ -16,9 +16,10 @@ open index.html        # or python3 -m http.server 8080
 
 ## Architecture
 Static blog with TypeScript build. Terminal aesthetic (IBM Plex Mono, dark green on black).
-**Cloudflare Pages** deployment — production at https://vimsite.pages.dev/
+**Cloudflare Workers** deployment — production at https://vimsite.sgoncia.workers.dev/
 GitHub auto-deploy connected — pushes to main deploy automatically.
 CI gate (lint/build/typecheck) runs via `.github/workflows/pages.yml` on pushes and PRs.
+Lighthouse performance auditing runs via `.github/workflows/lighthouse.yml` on PRs.
 
 ```
 vimsite/
