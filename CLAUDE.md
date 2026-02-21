@@ -16,7 +16,9 @@ open index.html        # or python3 -m http.server 8080
 
 ## Architecture
 Static blog with TypeScript build. Terminal aesthetic (IBM Plex Mono, dark green on black).
-GitHub Pages deployment via `.github/workflows/pages.yml`.
+**Cloudflare Pages** deployment — production at https://vimsite.pages.dev/
+GitHub auto-deploy connected — pushes to main deploy automatically.
+CI gate (lint/build/typecheck) runs via `.github/workflows/pages.yml` on pushes and PRs.
 
 ```
 vimsite/
@@ -83,7 +85,7 @@ Always edit `src/`, never edit `assets/js/` directly.
 - **Stylelint**: CSS linting — duplicate props, invalid selectors, shorthand conflicts
 - **Prettier**: formatting for TS, CSS, HTML — consistent style, no debates
 - **Pre-commit**: lint-staged runs all three on staged files
-- **CI**: `npm run lint && npm run format:check` before Pages deploy
+- **CI**: `npm run lint && npm run format:check` — runs on pushes and PRs via GitHub Actions
 
 ## Viz System — Rust/WASM (Future)
 - Viz modules use **Rust compiled to WebAssembly** — not TypeScript
