@@ -1,5 +1,5 @@
 /* ============================================
-   steven's log — style.css
+   log — style.css
    terminal ls/tree aesthetic · fast-loading
    ============================================ */
 
@@ -170,10 +170,17 @@ header {
 }
 
 .ls-table tbody tr.selected {
-  background: var(--bg-raised);
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
+  background: #1a331a;
 }
+
+/* color entry rows by type */
+.ls-table tbody tr.spoken a { color: var(--spoken); }
+.ls-table tbody tr.spoken a:hover { color: #ffcc80; }
+.ls-table tbody tr.spoken .ls-desc { color: #b57a2a; }
+
+.ls-table tbody tr.written a { color: var(--written); }
+.ls-table tbody tr.written a:hover { color: #b2dfdb; }
+.ls-table tbody tr.written .ls-desc { color: #5f9ea0; }
 
 .ls-date {
   color: var(--fg-dim);
@@ -334,6 +341,45 @@ header {
   color: var(--fg-dim);
   border: 1px solid var(--border);
   letter-spacing: 0.05em;
+}
+
+/* === POST NAV (prev/next between posts) === */
+
+.post-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border);
+  font-size: 0.75rem;
+}
+
+.post-nav a {
+  color: var(--fg-dim);
+}
+
+.post-nav a:hover {
+  color: var(--link-hover);
+}
+
+.post-nav .next { margin-left: auto; }
+
+/* === VIM HINT === */
+
+.vim-hint {
+  font-size: 0.6rem;
+  color: var(--border);
+  margin-top: 1rem;
+  letter-spacing: 0.03em;
+}
+
+.vim-hint a {
+  color: var(--border);
+  text-decoration: underline;
+}
+
+.vim-hint a:hover {
+  color: var(--fg-dim);
 }
 
 /* === FOOTER === */
