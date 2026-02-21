@@ -425,6 +425,127 @@ footer {
   margin-top: 0.35rem;
 }
 
+/* === EDITOR OVERLAY (lazy-loaded, auth-gated) === */
+
+.editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+}
+
+.editor-box {
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  background: var(--tag-bg);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--fg-dim);
+}
+
+.editor-path { color: var(--fg); }
+
+.editor-type {
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+.editor-type:hover { opacity: 0.7; }
+.editor-type.spoken { color: var(--spoken); }
+.editor-type.written { color: var(--written); }
+
+.editor-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editor-textarea {
+  flex: 1;
+  min-height: 250px;
+  background: var(--bg);
+  color: var(--fg);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 1rem;
+  font-family: var(--font);
+  font-size: 0.8rem;
+  line-height: 1.7;
+  resize: none;
+  outline: none;
+}
+
+.editor-input {
+  background: var(--bg);
+  color: var(--fg);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0.35rem 0.75rem;
+  font-family: var(--font);
+  font-size: 0.7rem;
+  outline: none;
+}
+
+.editor-input::placeholder,
+.editor-textarea::placeholder {
+  color: var(--border);
+}
+
+.editor-status {
+  padding: 0.3rem 0.75rem;
+  font-size: 0.65rem;
+  color: var(--fg-dim);
+  background: var(--tag-bg);
+  border-top: 1px solid var(--border);
+}
+
+/* delete confirmation */
+.delete-header {
+  background: #2a0a0a !important;
+  color: #ff4444 !important;
+  border-color: #ff4444 !important;
+}
+
+.delete-progress {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.delete-dot {
+  width: 2rem;
+  height: 2rem;
+  line-height: 2rem;
+  text-align: center;
+  border: 1px solid var(--border);
+  color: var(--border);
+  font-size: 0.7rem;
+}
+
+.delete-dot.active {
+  border-color: #ff4444;
+  color: #ff4444;
+  background: #2a0a0a;
+}
+
 /* === RESPONSIVE === */
 
 @media (max-width: 650px) {

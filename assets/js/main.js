@@ -14,27 +14,33 @@
   }
 
   function injectJ2000() {
-    // index page: .ls-date[data-date]
     document.querySelectorAll('.ls-date[data-date]').forEach(function(el) {
       var p = el.dataset.date.split('-');
-      var jd = j2000(+p[0], +p[1], +p[2]);
       var span = document.createElement('span');
       span.className = 'j2000';
-      span.textContent = 'J' + jd;
+      span.textContent = 'J' + j2000(+p[0], +p[1], +p[2]);
       el.appendChild(span);
     });
-    // post pages: time[datetime]
     document.querySelectorAll('.post-meta time[datetime]').forEach(function(el) {
       var p = el.getAttribute('datetime').split('-');
-      var jd = j2000(+p[0], +p[1], +p[2]);
       var span = document.createElement('span');
       span.className = 'j2000';
-      span.textContent = 'J' + jd;
+      span.textContent = 'J' + j2000(+p[0], +p[1], +p[2]);
       el.parentNode.insertBefore(span, el.nextSibling);
     });
   }
 
   injectJ2000();
+
+  // --- lazy-load editor.js ---
+  function loadEditor(fn) {
+    if (window.__editor) { fn(); return; }
+    var s = document.createElement('script');
+    var isPost = !!document.querySelector('.post-content');
+    s.src = (isPost ? '../' : '') + 'assets/js/editor.js';
+    s.onload = fn;
+    document.head.appendChild(s);
+  }
 
   // --- vim j/k/↑/↓/Enter nav on ls table rows (skips group headers) ---
   var rows = document.querySelectorAll('.ls-table tbody tr:not(.ls-group-year):not(.ls-group-month)');
@@ -48,8 +54,22 @@
     }
   }
 
+  function getSelectedSlug() {
+    if (cur < 0 || !rows[cur]) return null;
+    var link = rows[cur].querySelector('a');
+    if (!link) return null;
+    var m = link.getAttribute('href').match(/posts\/([^.]+)\.html/);
+    return m ? m[1] : null;
+  }
+
+  function getCurrentSlug() {
+    var m = location.pathname.match(/posts\/([^.]+)\.html/);
+    return m ? m[1] : null;
+  }
+
   document.addEventListener('keydown', function(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (document.querySelector('.editor-overlay')) return;
 
     // j / ArrowDown — move down
     if (e.key === 'j' || e.key === 'ArrowDown') {
@@ -85,6 +105,27 @@
       var back = document.querySelector('.post-nav .back') ||
                  document.querySelector('nav a[href*="index"]');
       if (back) { e.preventDefault(); back.click(); }
+    }
+    // n — new entry (index page only)
+    else if (e.key === 'n' && !document.querySelector('.post-content')) {
+      e.preventDefault();
+      loadEditor(function() { window.__editor.newEntry(); });
+    }
+    // e — edit entry (post page or selected index row)
+    else if (e.key === 'e') {
+      var slug = document.querySelector('.post-content') ? getCurrentSlug() : getSelectedSlug();
+      if (slug) {
+        e.preventDefault();
+        loadEditor(function() { window.__editor.editEntry(slug); });
+      }
+    }
+    // d — delete entry (index page, with selection)
+    else if (e.key === 'd' && !document.querySelector('.post-content')) {
+      var slug = getSelectedSlug();
+      if (slug) {
+        e.preventDefault();
+        loadEditor(function() { window.__editor.deleteEntry(slug); });
+      }
     }
   });
 
