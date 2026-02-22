@@ -17,6 +17,13 @@ export function propagate(tle_json) {
     return takeFromExternrefTable0(ret[0]);
 }
 
+/**
+ * @param {number} factor
+ */
+export function set_time_warp(factor) {
+    wasm.set_time_warp(factor);
+}
+
 export function start() {
     wasm.start();
 }
@@ -868,7 +875,7 @@ function __wbg_get_imports() {
             return ret;
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 34, function: Function { arguments: [NamedExternref("BeforeUnloadEvent")], shim_idx: 5, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 33, function: Function { arguments: [NamedExternref("BeforeUnloadEvent")], shim_idx: 5, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h12d6647f1f8d439a, wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b);
             return ret;
         },

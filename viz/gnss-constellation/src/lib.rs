@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::f32::consts::PI;
 
 use three_d::*;
@@ -26,10 +27,18 @@ const SATS: &[ConstellationDef] = &[
     ConstellationDef { rgb: [255, 170, 0],  alt_km: 21528.0, inc_deg: 55.0,  planes: 3, sats_per_plane: 8,  raan_spacing_deg: 120.0, raan_offset_deg: 80.0 }, // BeiDou MEO
 ];
 
-const EARTH_R: f32 = 6371.0;     // km
-const MU: f32 = 398600.4418;     // km³/s²
-const TIME_WARP: f64 = 300.0;    // sim seconds per real second
-const RING_PTS: u32 = 80;        // points per orbit ring
+const EARTH_R: f32 = 6371.0;  // km
+const MU: f32 = 398600.4418;  // km³/s²
+const RING_PTS: u32 = 80;     // points per orbit ring
+
+thread_local! {
+    static TIME_WARP: Cell<f64> = Cell::new(50.0); // sim seconds per real second
+}
+
+#[wasm_bindgen]
+pub fn set_time_warp(factor: f64) {
+    TIME_WARP.with(|w| w.set(factor));
+}
 
 fn alt_norm(alt_km: f32) -> f32 { (EARTH_R + alt_km) / EARTH_R }
 
@@ -164,7 +173,7 @@ pub fn start() {
     let mut sim_time = 0.0f64;
 
     window.render_loop(move |mut frame_input| {
-        sim_time += frame_input.elapsed_time * TIME_WARP;
+        sim_time += frame_input.elapsed_time * TIME_WARP.with(|w| w.get());
         let t = sim_time as f32;
 
         control.handle_events(&mut camera, &mut frame_input.events);

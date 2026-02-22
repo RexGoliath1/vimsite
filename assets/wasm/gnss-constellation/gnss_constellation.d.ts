@@ -8,6 +8,8 @@
  */
 export function propagate(tle_json: string): any;
 
+export function set_time_warp(factor: number): void;
+
 export function start(): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -15,6 +17,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly propagate: (a: number, b: number) => [number, number, number];
+    readonly set_time_warp: (a: number) => void;
     readonly start: () => void;
     readonly wasm_bindgen__closure__destroy__h12d6647f1f8d439a: (a: number, b: number) => void;
     readonly wasm_bindgen__closure__destroy__ha269213a20b3fe57: (a: number, b: number) => void;
