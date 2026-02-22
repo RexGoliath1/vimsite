@@ -34,14 +34,14 @@
         position: absolute;
         top: 0;
         right: 0;
-        width: 218px;
+        width: 280px;
         z-index: 10;
         background: rgba(0, 0, 0, 0.88);
         border-left: 1px solid #1a3a1a;
         border-bottom: 1px solid #1a3a1a;
         padding: 8px 10px;
         font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.68rem;
+        font-size: 0.78rem;
         color: #3a6a3a;
         box-sizing: border-box;
         line-height: 1.5;
@@ -57,14 +57,14 @@
 
       #hud-clock {
         color: #5aaa5a;
-        font-size: 0.65rem;
+        font-size: 0.74rem;
         letter-spacing: 0.02em;
         flex: 1;
       }
 
       #tle-status {
         color: #2a5a2a;
-        font-size: 0.6rem;
+        font-size: 0.68rem;
         letter-spacing: 0.04em;
         text-align: right;
       }
@@ -74,7 +74,7 @@
         border: 1px solid #2a5a2a;
         color: #5aaa5a;
         font-family: inherit;
-        font-size: 0.65rem;
+        font-size: 0.72rem;
         padding: 1px 5px;
         cursor: pointer;
         line-height: 1.4;
@@ -92,7 +92,7 @@
         border: 1px solid #1a3a1a;
         color: #3a6a3a;
         font-family: inherit;
-        font-size: 0.58rem;
+        font-size: 0.66rem;
         padding: 1px 3px;
         color-scheme: dark;
         width: 100%;
@@ -112,7 +112,7 @@
       #time-warp-value {
         color: #39ff14;
         min-width: 5ch;
-        font-size: 0.65rem;
+        font-size: 0.72rem;
       }
 
       .hud-divider {
@@ -150,7 +150,7 @@
       }
 
       .legend-dot {
-        font-size: 0.7rem;
+        font-size: 0.82rem;
         line-height: 1;
         flex-shrink: 0;
       }
@@ -180,12 +180,12 @@
       }
 
       .hud-location input[type='number'] {
-        width: 68px;
+        width: 80px;
         background: #050e05;
         border: 1px solid #1a3a1a;
         color: #3a6a3a;
         font-family: inherit;
-        font-size: 0.62rem;
+        font-size: 0.7rem;
         padding: 1px 3px;
         min-width: 0;
         -moz-appearance: textfield;
@@ -201,6 +201,8 @@
         display: block;
         margin-top: 6px;
         border: 1px solid #1a3a1a;
+        width: 240px;
+        height: 240px;
       }
 
       /* ── Footer notes ─────────────────────────────────────────────────── */
@@ -320,8 +322,8 @@
           <!-- Sky plot canvas (200×200 logical px) -->
           <canvas
             id="sky-plot-canvas"
-            width="200"
-            height="200"
+            width="240"
+            height="240"
             aria-label="Sky plot: satellite azimuth/elevation from observer"
           ></canvas>
         </div>
@@ -353,11 +355,20 @@
       import { initHud } from '/assets/js/gnss-hud.js';
       import { initSkyPlot } from '/assets/js/gnss-skyplot.js';
 
+      // initWasm() rejects on WASM because winit's EventLoop::run() calls
+      // wasm_bindgen::throw_str() to hand control back to the JS event loop.
+      // The render loop is already running via rAF; STATE is intact.
+      // We MUST wire HUD controls after the throw, not inside the try block.
       try {
         await initWasm();
-        // start() fires automatically via #[wasm_bindgen(start)]
+      } catch (_e) {
+        // Expected winit behaviour — not an error
+      }
 
-        // Wire HUD controls (includes time warp slider via set_time_warp export)
+      // Wire HUD controls and sky plot. These work because:
+      // - GnssState was fully initialized in start() before event_loop.run() threw
+      // - wasm_bindgen::throw_str does NOT poison the WASM instance
+      try {
         initHud(wasmModule);
         initSkyPlot(wasmModule);
 
@@ -368,7 +379,7 @@
           el.addEventListener('mouseleave', () => wasmModule.set_highlighted_constellation(-1));
         });
       } catch (e) {
-        console.error('[gnss] WASM init failed:', e);
+        console.error('[gnss] HUD init failed:', e);
       }
     </script>
   </body>
