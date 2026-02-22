@@ -3,8 +3,7 @@
     "collect": {
       "staticDistDir": "./",
       "url": [
-        "http://localhost/index.html",
-        "http://localhost/posts/entry-number-one.html"
+        "http://localhost/index.html"
       ],
       "numberOfRuns": 3,
       "settings": {
