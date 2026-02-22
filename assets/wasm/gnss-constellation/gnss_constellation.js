@@ -24,6 +24,10 @@ export function start() {
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
+        __wbg___gnssGetTimeWarp_45f10df2a2189f87: function() {
+            const ret = __gnssGetTimeWarp();
+            return ret;
+        },
         __wbg___wbindgen_boolean_get_4a348b369b009243: function(arg0) {
             const v = arg0;
             const ret = typeof(v) === 'boolean' ? v : undefined;

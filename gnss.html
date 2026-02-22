@@ -43,6 +43,30 @@
       .gnss-footer-note a:hover {
         color: var(--fg-dim);
       }
+
+      .gnss-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.75rem;
+        color: var(--fg-dim);
+      }
+
+      .gnss-controls label {
+        white-space: nowrap;
+      }
+
+      #time-warp-slider {
+        flex: 1;
+        max-width: 220px;
+        accent-color: var(--accent);
+      }
+
+      #time-warp-value {
+        color: var(--accent);
+        min-width: 5ch;
+      }
     </style>
   </head>
   <body>
@@ -57,6 +81,12 @@
         gnss constellation
       </h1>
       <p class="gnss-status">station: offline &mdash; displaying TLE orbits only</p>
+
+      <div class="gnss-controls">
+        <label for="time-warp-slider">time warp:</label>
+        <input id="time-warp-slider" type="range" min="1" max="7200" value="120" step="1" />
+        <span id="time-warp-value">120×</span>
+      </div>
 
       <canvas id="gnss-canvas" aria-label="GNSS constellation orbit visualization"></canvas>
 
@@ -81,8 +111,26 @@
     <script src="assets/js/main.js" defer></script>
     <script type="module">
       import init from '/assets/wasm/gnss-constellation/gnss_constellation.js';
-      await init();
-      // start() is called automatically via #[wasm_bindgen(start)]
+
+      // Define time warp state and getter BEFORE init so WASM can read it immediately
+      window.__gnssTimeWarp = 120;
+      window.__gnssGetTimeWarp = () => window.__gnssTimeWarp;
+
+      // Register slider SYNCHRONOUSLY (before await) — always wired regardless of init outcome
+      const slider = document.getElementById('time-warp-slider');
+      const valueLabel = document.getElementById('time-warp-value');
+      slider.addEventListener('input', () => {
+        const v = Number(slider.value);
+        window.__gnssTimeWarp = v;
+        valueLabel.textContent = `${v}×`;
+      });
+
+      try {
+        await init();
+        // start() is called automatically via #[wasm_bindgen(start)]
+      } catch (e) {
+        console.error('[gnss] WASM init failed:', e);
+      }
     </script>
   </body>
 </html>
