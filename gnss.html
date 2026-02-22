@@ -34,15 +34,15 @@
         position: absolute;
         top: 0;
         right: 0;
-        width: 280px;
+        width: 300px;
         z-index: 10;
         background: rgba(0, 0, 0, 0.88);
         border-left: 1px solid #1a3a1a;
         border-bottom: 1px solid #1a3a1a;
-        padding: 8px 10px;
+        padding: 8px 12px;
         font-family: 'IBM Plex Mono', monospace;
-        font-size: 0.78rem;
-        color: #3a6a3a;
+        font-size: 0.85rem;
+        color: #7ab87a;
         box-sizing: border-box;
         line-height: 1.5;
       }
@@ -56,44 +56,44 @@
       }
 
       #hud-clock {
-        color: #5aaa5a;
-        font-size: 0.74rem;
+        color: #9dd49d;
+        font-size: 0.8rem;
         letter-spacing: 0.02em;
         flex: 1;
       }
 
       #tle-status {
-        color: #2a5a2a;
-        font-size: 0.68rem;
+        color: #5a9a5a;
+        font-size: 0.74rem;
         letter-spacing: 0.04em;
         text-align: right;
       }
 
       #hud-panel button {
         background: transparent;
-        border: 1px solid #2a5a2a;
-        color: #5aaa5a;
+        border: 1px solid #3a7a3a;
+        color: #7acc7a;
         font-family: inherit;
-        font-size: 0.72rem;
-        padding: 1px 5px;
+        font-size: 0.8rem;
+        padding: 2px 6px;
         cursor: pointer;
         line-height: 1.4;
       }
 
       #hud-panel button:hover {
-        border-color: #5aaa5a;
-        color: #80cc80;
+        border-color: #7acc7a;
+        color: #a0e0a0;
       }
 
       #time-scrubber {
         flex: 1;
         min-width: 0;
         background: #050e05;
-        border: 1px solid #1a3a1a;
-        color: #3a6a3a;
+        border: 1px solid #2a5a2a;
+        color: #7ab87a;
         font-family: inherit;
-        font-size: 0.66rem;
-        padding: 1px 3px;
+        font-size: 0.75rem;
+        padding: 2px 4px;
         color-scheme: dark;
         width: 100%;
       }
@@ -112,7 +112,7 @@
       #time-warp-value {
         color: #39ff14;
         min-width: 5ch;
-        font-size: 0.72rem;
+        font-size: 0.82rem;
       }
 
       .hud-divider {
@@ -150,7 +150,7 @@
       }
 
       .legend-dot {
-        font-size: 0.82rem;
+        font-size: 1.1rem;
         line-height: 1;
         flex-shrink: 0;
       }
@@ -158,6 +158,8 @@
       .legend-name {
         flex: 1;
         letter-spacing: 0.04em;
+        font-size: 0.95rem;
+        color: #9dd49d;
       }
 
       /* ── Visible-only + location ──────────────────────────────────────── */
@@ -182,11 +184,11 @@
       .hud-location input[type='number'] {
         width: 80px;
         background: #050e05;
-        border: 1px solid #1a3a1a;
-        color: #3a6a3a;
+        border: 1px solid #2a5a2a;
+        color: #7ab87a;
         font-family: inherit;
-        font-size: 0.7rem;
-        padding: 1px 3px;
+        font-size: 0.8rem;
+        padding: 2px 4px;
         min-width: 0;
         -moz-appearance: textfield;
       }
@@ -201,8 +203,8 @@
         display: block;
         margin-top: 6px;
         border: 1px solid #1a3a1a;
-        width: 240px;
-        height: 240px;
+        width: 260px;
+        height: 260px;
       }
 
       /* ── Footer notes ─────────────────────────────────────────────────── */
@@ -319,11 +321,11 @@
             <button id="btn-set-location" title="apply location">↵</button>
           </div>
 
-          <!-- Sky plot canvas (200×200 logical px) -->
+          <!-- Sky plot canvas (260×260 logical px) -->
           <canvas
             id="sky-plot-canvas"
-            width="240"
-            height="240"
+            width="260"
+            height="260"
             aria-label="Sky plot: satellite azimuth/elevation from observer"
           ></canvas>
         </div>

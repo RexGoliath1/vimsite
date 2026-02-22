@@ -155,7 +155,9 @@ pub fn is_visible(el_deg: f64, min_el_deg: f64) -> bool {
 /// Returns `JsValue::NULL` only if serialisation fails (should never happen
 /// for well-formed `SkySat` values).
 pub fn sky_plot_jsvalue(sats: &[SkySat]) -> JsValue {
-    serde_wasm_bindgen::to_value(sats).unwrap_or(JsValue::NULL)
+    use serde::Serialize as _;
+    let ser = serde_wasm_bindgen::Serializer::json_compatible();
+    sats.serialize(&ser).unwrap_or(JsValue::NULL)
 }
 
 // ---------------------------------------------------------------------------

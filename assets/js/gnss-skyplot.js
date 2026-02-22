@@ -38,7 +38,7 @@ export function initSkyPlot(wasmModule) {
   }
 
   const dpr = window.devicePixelRatio || 1;
-  const logicalSize = 200;
+  const logicalSize = 260;
 
   // Scale canvas backing store for crisp rendering on HiDPI displays
   canvas.width = logicalSize * dpr;
@@ -66,7 +66,17 @@ export function initSkyPlot(wasmModule) {
         console.error("[gnss-skyplot] get_sky_data() failed:", err);
       }
 
-      renderSkyPlot(ctx, sats, logicalSize, logicalSize);
+      // Read current observer location from DOM inputs for the label
+      const latEl = document.getElementById("ground-lat");
+      const lonEl = document.getElementById("ground-lon");
+      const latVal = latEl ? parseFloat(latEl.value) : NaN;
+      const lonVal = lonEl ? parseFloat(lonEl.value) : NaN;
+      const locationLabel =
+        isFinite(latVal) && isFinite(lonVal)
+          ? `${latVal.toFixed(2)}° ${lonVal.toFixed(2)}°`
+          : "sky";
+
+      renderSkyPlot(ctx, sats, logicalSize, logicalSize, locationLabel);
     }
 
     requestAnimationFrame(loop);
@@ -81,8 +91,9 @@ export function initSkyPlot(wasmModule) {
  * @param {Array<{name: string, constellation: number, az_deg: number, el_deg: number, r: number, g: number, b: number}>} sats
  * @param {number} width  — logical canvas width (before dpr scaling)
  * @param {number} height — logical canvas height (before dpr scaling)
+ * @param {string} [locationLabel] — observer label shown at top-left
  */
-export function renderSkyPlot(ctx, sats, width, height) {
+export function renderSkyPlot(ctx, sats, width, height, locationLabel = "sky") {
   const cx = width / 2;
   const cy = height / 2;
   // Leave a small margin so labels at edge aren't clipped
@@ -98,7 +109,7 @@ export function renderSkyPlot(ctx, sats, width, height) {
   ctx.fillStyle = COLORS.panelTitle;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText("sky / chicago", 4, 3);
+  ctx.fillText(locationLabel, 4, 3);
 
   // --- Crosshairs ---
   ctx.save();

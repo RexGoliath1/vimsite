@@ -250,10 +250,36 @@ pub fn start() {
         ColorMaterial { color: Srgba::new(20, 60, 20, 255), ..Default::default() },
     );
 
-    // Ground observer marker — small white sphere on Earth surface
+    // Lat/lon graticule — 15° grid dots on Earth surface
+    let grid_dot_mesh = CpuMesh::sphere(2);
+    let grid_dot_scale = Mat4::from_scale(0.007f32);
+    let mut grid_xforms: Vec<Mat4> = Vec::new();
+    for lat_i in -5i32..=5 {          // −75° to +75° in 15° steps
+        let lat = (lat_i as f32 * 15.0).to_radians();
+        for lon_i in 0..24i32 {        // 0° to 345° in 15° steps
+            let lon = (lon_i as f32 * 15.0).to_radians();
+            let x = lat.cos() * lon.cos();
+            let y = lat.cos() * lon.sin();
+            let z = lat.sin();
+            grid_xforms.push(Mat4::from_translation(vec3(x, y, z)) * grid_dot_scale);
+        }
+    }
+    // Polar caps
+    grid_xforms.push(Mat4::from_translation(vec3(0.0f32, 0.0, 1.0)) * grid_dot_scale);
+    grid_xforms.push(Mat4::from_translation(vec3(0.0f32, 0.0, -1.0)) * grid_dot_scale);
+    let graticule = Gm::new(
+        InstancedMesh::new(
+            &context,
+            &Instances { transformations: grid_xforms, ..Default::default() },
+            &grid_dot_mesh,
+        ),
+        ColorMaterial { color: Srgba::new(100, 100, 100, 255), ..Default::default() },
+    );
+
+    // Ground observer marker — bright yellow sphere on Earth surface
     let mut ground_marker = Gm::new(
         Mesh::new(&context, &CpuMesh::sphere(8)),
-        ColorMaterial { color: Srgba::new(255, 255, 255, 255), ..Default::default() },
+        ColorMaterial { color: Srgba::new(255, 240, 60, 255), ..Default::default() },
     );
 
     // ── Keplerian Phase-1 orbit rings + satellite meshes ──────────────────────
@@ -401,6 +427,10 @@ pub fn start() {
         } else {
             // Keplerian fallback
             let t = sim_epoch as f32;
+            let obs_km_kepler = {
+                let u = STATE.with(|s| s.borrow().observer.ecef_unit());
+                [u[0] * 6371.0, u[1] * 6371.0, u[2] * 6371.0]
+            };
             for (idx, s) in states.iter().enumerate() {
                 let base = CONST_COLORS[idx];
                 sat_gms[idx].material.color = if !cv[idx] {
@@ -415,9 +445,15 @@ pub fn start() {
                 } else {
                     (0..s.planes).flat_map(|p| {
                         let raan = s.roff + p as f32 * s.rsp;
-                        (0..s.sats_per_plane).map(move |i| {
+                        (0..s.sats_per_plane).filter_map(move |i| {
                             let ma = i as f32 * 2.0 * PI / s.sats_per_plane as f32 + s.mm * t;
-                            Mat4::from_translation(kpos(s.r, s.inc, raan, ma)) * sat_scale
+                            let p = kpos(s.r, s.inc, raan, ma);
+                            if visible_only {
+                                let sat_km = [p.x as f64 * 6371.0, p.y as f64 * 6371.0, p.z as f64 * 6371.0];
+                                let (_, el) = coords::az_el(obs_km_kepler, sat_km);
+                                if el < 5.0 { return None; }
+                            }
+                            Some(Mat4::from_translation(p) * sat_scale)
                         })
                     }).collect()
                 };
@@ -435,11 +471,11 @@ pub fn start() {
         let obs_scene = STATE.with(|s| s.borrow().observer.scene_pos());
         ground_marker.geometry.set_transformation(
             Mat4::from_translation(vec3(obs_scene[0], obs_scene[1], obs_scene[2]))
-                * Mat4::from_scale(0.035),
+                * Mat4::from_scale(0.06),
         );
 
         // ── 7. Render ─────────────────────────────────────────────────────
-        let mut objs: Vec<&dyn Object> = vec![&earth, &eq_ring, &ground_marker];
+        let mut objs: Vec<&dyn Object> = vec![&earth, &eq_ring, &graticule, &ground_marker];
         for g in &orbit_gms  { objs.push(g); }
         for g in &sat_gms    { objs.push(g); }
         for g in &tle_sat_gms { objs.push(g); }

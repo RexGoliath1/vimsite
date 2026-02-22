@@ -23,6 +23,10 @@ const CONSTELLATION_IDS = ['gps', 'glonass', 'galileo', 'beidou'];
 let observerLat = CHICAGO_LAT;
 let observerLon = CHICAGO_LON;
 
+// set to true once the user explicitly presses ↵ — prevents geolocation
+// from silently overwriting their manual entry
+let locationManuallySet = false;
+
 // ─── public API ──────────────────────────────────────────────────────────────
 
 /**
@@ -80,6 +84,13 @@ function wireGroundLocation() {
   const btn = document.getElementById('btn-set-location');
   if (!btn) return;
   btn.addEventListener('click', applyManualLocation);
+
+  // Also trigger on Enter in either lat/lon input
+  const latEl = document.getElementById('ground-lat');
+  const lonEl = document.getElementById('ground-lon');
+  for (const el of [latEl, lonEl]) {
+    if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyManualLocation(); });
+  }
 }
 
 function applyManualLocation() {
@@ -89,6 +100,7 @@ function applyManualLocation() {
   const lat = parseFloat(latEl.value);
   const lon = parseFloat(lonEl.value);
   if (!isFinite(lat) || !isFinite(lon)) return;
+  locationManuallySet = true;
   setObserverLocation(lat, lon);
 }
 
@@ -256,10 +268,12 @@ async function fetchAndApplyGeolocation() {
     const lat = Number(data.latitude);
     const lon = Number(data.longitude);
     if (!isFinite(lat) || !isFinite(lon)) throw new Error('invalid coords');
+    // Don't override a location the user already set manually
+    if (locationManuallySet) return;
     setObserverLocation(lat, lon);
   } catch (e) {
     console.error('[gnss-hud] geolocation failed, using chicago default:', e);
-    setObserverLocation(CHICAGO_LAT, CHICAGO_LON);
+    if (!locationManuallySet) setObserverLocation(CHICAGO_LAT, CHICAGO_LON);
   }
 }
 
