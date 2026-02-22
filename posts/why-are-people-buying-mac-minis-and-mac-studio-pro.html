@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>why-are-people-buying-mac-minis-and-mac-studio-pro — log</title>
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+  <header>
+    <nav style="font-size: 0.8rem; color: var(--fg-dim);">
+      <a href="../index.html">~/log</a> / why-are-people-buying-mac-minis-and-mac-studio-pro
+    </nav>
+  </header>
+
+  <main class="post-content">
+    <div class="post-meta">
+      <time datetime="2026-02-21">2026-02-21</time>
+      <span class="post-type spoken">spoken</span>
+    </div>
+    <h1>why-are-people-buying-mac-minis-and-mac-studio-pro</h1>
+
+    <div class="spoken-transcript">
+      <p class="spoken-label">transcribed via spokenly · lightly edited</p>
+
+      <p>
+        Alright, this is a little bit of a test of the blog, but also just rambling. 
+        If you're chronically uh on Twitter (X), like I am, you're wondering why people are buying Mac minis and Mac Pros.
+      </p>
+
+      <p>
+        You get a lot of security researchers and general computer science individuals, like Primgen, Theo, DHH, Dax, etc. They're giving their take on the state of things like Claude, codex, open claw. Stuff that a normal person doesn't really think about.
+      </p>
+
+      <p>
+        The main thread I've seen is that OpenClaw is a security disaster. Mulplook is ridiculous. These are not agents interacting with each other, these are just 4chan users making agents say provocative things. Definitely true.
+      </p>
+
+      <p>
+        The thing I haven't seen discussed much is why people are actually buying these Mac minis and Mac Pros. Why a clown like @Jason is posting his server racks and his replacement of staff With OpenClaw instances that hook up to a bunch of APIs.
+      </p>
+
+      <p>
+        This is the sort of impetus for these blog posts of mine. Because clearly the right answer is "go implement a secure container or VM environment on some remote server that doesn't touch my stuff."
+      </p>
+
+      <p>
+        The real answer actually has to do with the capabilities of Codex and Claude Code as it stands. These agentic environments seem to be actually primarily geared toward users that are running them bare metal on their computers. There's a lot of hoops to jump through if you're trying to authenticate claude or codex on a remote server to actually run using your Max or whatever subscription model that you're using. (I will note that API users are a bit less limited in their headless operations in secure Linux environments on certain cloud instances.)
+      </p>
+
+      <p>
+        # Remote Limitations
+        If you're transferring from a local to a more secure environment like a container or a remote instance, good on you. You recognize how crazy it is to run --dangerously-skip-permissions with where we've been in LLM capability. Sure, Karpathy will probably tell you to just go with the flow, but that's a really bad idea if you're just some Joe Schmo.
+      </p>
+
+      <p>
+        The problem is headless permissions are a second-class citizen. There's certain instances where Claude can't even call Claude itself from another process. It seems that the creator of Claude Code heavily tied resource utilization and disk space permissions together. The get tree workflows are simply a hack that are inherited by all other instances of lllms: KIMI, openCode, etc included.
+      </p>
+
+      <p>
+        That's not to say that cloud instances of open claw and Claude Code are dead on arrival. Just that they are currently a workflow that is not optimized for the current providers that actually matter (sorry Dax, I just don't think your buisiness models works not matter how good of a programmer you are).
+      </p>
+
+      <p>
+        So of course, if you're trying to navigate websites that do not have APIs and you're not somebody who knows the playwright mechanisms, you would, of course, default to agentic workflows.
+      </p>
+
+      <p>
+        This is the point of this blog.
+      </p>
+
+      <p>
+        # My use case (Amtrak train travel suggestions: Google Flight)
+        I wanted to automate Amtrak schedules to give a sort of Google Flights workflow where I can understand what the best deals are for units that That have a bed in them that would allow something like the European model of night trains to exist.
+      </p>
+
+      <p>
+        The thing is, this use case is littered with dead projects of the past. With the common thread being that Amtrak simply does not have an api sdk to actually enable what I want it to do. The only reasonable alternative is a playwright workflow. But take that to the next step. If I have to learn Playwright and all of its parameters and how it navigates websites, why would I not just have an OpenClaw instance that runs on a Mac mini that does the thing I want it to do?
+      </p>
+
+      <p>
+        ## The future / results
+        The problem, as I posed it, to Claude, is this: Amtrak as a federally funded institution simply does not have the software, engineering, capacity, or institution to mandate this API SDK. Maybe this is a special interests project, maybe this is just lack of funding, or maybe it's just the fact that the service itself is very unknown unless you are in a small segment of the population that cares about train travel.
+      </p>
+
+      <p>
+        The thing is, if I automate this process and actually provide this as a service of sorts, the Amtrak site is dead. It was not made to handle these agentic workflows.
+      </p>
+
+      <p>
+        I've seen this in my real life with the Apple phone number. blocking system simply being non-functional, even if you limit it to your context, because Because the back half of that service allows local incoming calls. This is a real problem.
+      </p>
+
+      <p>
+        Another thing you've probably heard from Twitter is that the Gmail filters are simply not working anymore. This is completely true. I get multiple spam messages every day crafted by very eloquent llms that are impossible to actually filter anymore.
+      </p>
+
+      <p>
+        The pure irony is that as we see things like Groq/Cerebras/Extropic and lower energy high intelligence LLMs actually being able to be deployed by anyone on earth means that the systems that we've created over the past decades of software engineering will simply not work anymore. It will simply be a requirement to have agentic workflows validate checks of DDoS attacks and other insidious mechanisms against agentic work flows. The matrix will require the matrix itself to verify identity / intent.
+      </p>
+
+      <p>
+        ## The test
+        Let's now talk about what I actually built. This is a web scraper that uses the Claude workplace workflow in lieu of OpenClaw. I simply do not trust the main developer of that application.
+      </p>
+
+      <p>
+        This service looks at every instance of a Chicago train travel location to any other place in the country that is within a one or two day distance of me. (Yes, I am admitting that I live in Chicago.)
+      </p>
+
+      <p>
+        This application runs every week and uses the clawed coworking space to navigate the Amtrak website. This is absurd if you've ever been an API SDK developer. The Amtrak service, which is mandated by the Federal Government to provide the correct train travel locations and Links to ticket purchase is simply unnavigatable by programmatic standards.
+      </p>
+
+      <p>
+        Thus the need for something like a playwright or claude workspace application.
+      </p>
+
+      <p>
+        The service logs in, looks at train devices between Chicago and any nearby latitude and longitude coordinates of cities of interest to mine, and publishes that to a very simplified blog that I have made.
+      </p>
+
+      <p>
+        The code is referenced inside of this blog post at the end. However, this is a call to say "Hey, this is really awesome. You can do amazing things with this. Please don't, as I'm worried that this might really break a lot of assumptions on federal services."
+      </p>
+
+      <p>
+        Maybe the right answer to this is "Go ahead and break these things so that the Federal Government can actually implement these these things correctly."
+      </p>
+
+      <p>
+        I'm just a little worried that we live in a time right now where that is not possible.
+      </p>
+
+      <p>
+        ## Expansion / Conclusion
+        I  won't be expanding this service. This is only for my use in figuring out correct transit options between my city and others that I'm interested in visiting.
+      </p>
+
+      <p>
+        But this is a guideline warning of "why people are buying these Mac minis and Mac Studio pros"
+      </p>
+
+      <p>
+        The Mac mini on a good day as it stands costs around $600-$750. The Mac Studio, depending on the model that you're getting, costs around $2000+.
+      </p>
+
+      <p>
+        For reference, the projections that my Claude instance says my AWS instance will cause is around $5 per month. So, needless to say, these are pretty large magnitudes off. I can certainly publish my own usage statistics, but frankly I almost certainly exceed the max ratings of token usage every month. This is simply not a limitation of the actual server it is ready none.
+      </p>
+
+      <p>
+        What is super interesting is the barrier to entry around headless development of VM or containerized environments of these instances of agenic uses. What's also somewhat interesting is that some of the workflows, both in Codex and ClaudCode, are also limited on a per usage basis. This seems to be an inherent design flaw in these systems as they exist right now, which is causing the spike in the usage of easy to purchase dumb instances like the Mac Mini and Mac Studio.
+      </p>
+
+      <p>
+        Anyway, thought I would let people know about this. It makes sense in the context of playwright and open claws' ability to Programmatically step through web pages and such. (Good god, I hope people are actually understanding the severity of security implications of that repo. The openClaw developer seems intelligent, but way in over his head without OpenAI support staff that seems to be what Sama has planned.)
+      </p>
+
+      <p>
+        # Final thoughts
+        We are entering into a world of mass agenic workflows. The websites of old are simply unequipped to handle this sort of traffic. It's gonna be a bumpy ride.
+      </p>
+    </div>
+
+    <div class="post-tags">
+
+    </div>
+  </main>
+
+  <nav class="post-nav">
+    <a class="back" href="../index.html">← ~/log</a>
+  </nav>
+
+  <footer>
+    <p class="vim-hint">← → between posts · backspace ~/log · e edit</p>
+    <p class="footer-eof">EOF</p>
+  </footer>
+
+  <script src="../assets/js/main.js"></script>
+</body>
+</html>
