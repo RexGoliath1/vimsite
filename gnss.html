@@ -12,17 +12,19 @@
     />
     <link rel="stylesheet" href="assets/css/style.css" />
     <style>
-      /* ── canvas container ─────────────────────────────────────────────── */
+      /* ── canvas container — full-bleed, escape body max-width ─────────── */
       .gnss-viz-container {
         position: relative;
-        width: 100%;
+        width: 100vw;
+        left: 50%;
+        transform: translateX(-50%);
       }
 
       #gnss-canvas {
         display: block;
         width: 100%;
-        height: calc(100vh - 180px);
-        min-height: 420px;
+        height: calc(100vh - 120px);
+        min-height: 500px;
         background: #000;
         border: 1px solid var(--border);
       }
@@ -33,6 +35,7 @@
         top: 0;
         right: 0;
         width: 218px;
+        z-index: 10;
         background: rgba(0, 0, 0, 0.88);
         border-left: 1px solid #1a3a1a;
         border-bottom: 1px solid #1a3a1a;
@@ -350,27 +353,11 @@
       import { initHud } from '/assets/js/gnss-hud.js';
       import { initSkyPlot } from '/assets/js/gnss-skyplot.js';
 
-      // Time warp globals — defined BEFORE init so WASM can read from frame 1
-      window.__gnssTimeWarp = 120;
-      window.__gnssGetTimeWarp = () => window.__gnssTimeWarp;
-
-      // Wire warp slider synchronously (works even if WASM init fails)
-      const slider = document.getElementById('time-warp-slider');
-      const valueLabel = document.getElementById('time-warp-value');
-      if (slider) {
-        slider.dataset.hudWired = '1'; // tell gnss-hud.js we own this listener
-        slider.addEventListener('input', () => {
-          const v = Number(slider.value);
-          window.__gnssTimeWarp = v;
-          if (valueLabel) valueLabel.textContent = `${v}×`;
-        });
-      }
-
       try {
         await initWasm();
         // start() fires automatically via #[wasm_bindgen(start)]
 
-        // Wire HUD controls and sky plot render loop
+        // Wire HUD controls (includes time warp slider via set_time_warp export)
         initHud(wasmModule);
         initSkyPlot(wasmModule);
 

@@ -143,21 +143,16 @@ function wireTimeWarpSlider() {
   const slider = document.getElementById('time-warp-slider');
   const label = document.getElementById('time-warp-value');
   if (!slider) return;
-  // sync initial value
-  if (typeof window.__gnssTimeWarp === 'number') {
-    slider.value = String(window.__gnssTimeWarp);
-    if (label) label.textContent = `${window.__gnssTimeWarp}×`;
-  }
-  // The inline script owns the listener; we only update window.__gnssTimeWarp
-  // if it hasn't been set up yet (defensive fallback).
-  if (!slider.dataset.hudWired) {
-    slider.dataset.hudWired = '1';
-    slider.addEventListener('input', () => {
-      const v = Number(slider.value);
-      window.__gnssTimeWarp = v;
-      if (label) label.textContent = `${v}×`;
-    });
-  }
+  // Push the slider's current HTML default into WASM state immediately
+  const initial = Number(slider.value);
+  wasm.set_time_warp(initial);
+  if (label) label.textContent = `${initial}×`;
+  // Update WASM state on every slider change
+  slider.addEventListener('input', () => {
+    const v = Number(slider.value);
+    wasm.set_time_warp(v);
+    if (label) label.textContent = `${v}×`;
+  });
 }
 
 // ─── clock display ───────────────────────────────────────────────────────────

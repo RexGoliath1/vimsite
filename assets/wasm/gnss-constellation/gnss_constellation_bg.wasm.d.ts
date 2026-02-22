@@ -8,6 +8,7 @@ export const set_ground_location: (a: number, b: number) => void;
 export const set_highlighted_constellation: (a: number) => void;
 export const set_paused: (a: number) => void;
 export const set_sim_epoch: (a: number) => void;
+export const set_time_warp: (a: number) => void;
 export const set_visible_only: (a: number) => void;
 export const start: () => void;
 export const toggle_constellation: (a: number, b: number) => void;

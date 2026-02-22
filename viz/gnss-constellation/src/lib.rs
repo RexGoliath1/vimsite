@@ -24,6 +24,8 @@ struct GnssState {
     highlighted: i32,
     /// Most-recent per-satellite ECEF positions (km) from TLE propagation.
     sat_ecef_km: Vec<(u8, [f64; 3])>,
+    /// Simulation time acceleration (e.g. 120 = 2 min real time per sim second).
+    time_warp: f64,
 }
 
 impl Default for GnssState {
@@ -37,20 +39,13 @@ impl Default for GnssState {
             constellation_visible: [true; 5],
             highlighted: -1,
             sat_ecef_km: Vec::new(),
+            time_warp: 120.0,
         }
     }
 }
 
 thread_local! {
     static STATE: RefCell<GnssState> = RefCell::new(GnssState::default());
-}
-
-// ── JS extern ─────────────────────────────────────────────────────────────────
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_name = "__gnssGetTimeWarp")]
-    fn get_time_warp() -> f64;
 }
 
 // ── WASM exports ──────────────────────────────────────────────────────────────
@@ -80,6 +75,11 @@ pub fn set_visible_only(on: bool) {
 #[wasm_bindgen]
 pub fn set_paused(on: bool) {
     STATE.with(|s| s.borrow_mut().paused = on);
+}
+
+#[wasm_bindgen]
+pub fn set_time_warp(v: f64) {
+    STATE.with(|s| s.borrow_mut().time_warp = v.max(0.0));
 }
 
 #[wasm_bindgen]
@@ -317,8 +317,9 @@ pub fn start() {
         // ── 1. Advance sim clock ──────────────────────────────────────────
         let paused = STATE.with(|s| s.borrow().paused);
         if !paused {
+            let warp = STATE.with(|s| s.borrow().time_warp);
             STATE.with(|s| {
-                s.borrow_mut().sim_epoch += frame_input.elapsed_time / 1000.0 * get_time_warp();
+                s.borrow_mut().sim_epoch += frame_input.elapsed_time / 1000.0 * warp;
             });
         }
         let sim_epoch = STATE.with(|s| s.borrow().sim_epoch);

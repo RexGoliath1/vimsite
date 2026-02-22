@@ -19,6 +19,8 @@ export function set_paused(on: boolean): void;
 
 export function set_sim_epoch(unix_s: number): void;
 
+export function set_time_warp(v: number): void;
+
 export function set_visible_only(on: boolean): void;
 
 export function start(): void;
@@ -36,6 +38,7 @@ export interface InitOutput {
     readonly set_highlighted_constellation: (a: number) => void;
     readonly set_paused: (a: number) => void;
     readonly set_sim_epoch: (a: number) => void;
+    readonly set_time_warp: (a: number) => void;
     readonly set_visible_only: (a: number) => void;
     readonly start: () => void;
     readonly toggle_constellation: (a: number, b: number) => void;
