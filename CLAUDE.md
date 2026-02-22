@@ -5,12 +5,12 @@
 npm run build          # compile TypeScript → assets/js/
 npm run lint           # ESLint + Stylelint + tsc --noEmit
 npm run format         # Prettier (check only: npm run format:check)
-open index.html        # or python3 -m http.server 8080
+python3 -m http.server 8080  # then open http://localhost:8080 (use open on macOS, xdg-open on Linux)
 ```
 
 ## Boot Checklist
 1. `git status` + `git log --oneline -5`
-2. Read memory: `~/.claude/projects/-Users-stevengonciar-git-vimsite/memory/MEMORY.md`
+2. Read memory: `~/.claude/projects/*vimsite*/memory/MEMORY.md` (path hash varies by machine)
 3. `npm run build && npm run lint` — verify clean state
 4. Open `index.html` in browser — verify post count matches `posts/` directory
 
