@@ -32,7 +32,8 @@ const MU: f32 = 398600.4418;  // km³/s²
 const RING_PTS: u32 = 80;     // points per orbit ring
 
 thread_local! {
-    static TIME_WARP: Cell<f64> = Cell::new(50.0); // sim seconds per real second
+    // sim seconds per real second; default = 120× → GPS orbit ≈ 6 min real time
+    static TIME_WARP: Cell<f64> = Cell::new(120.0);
 }
 
 #[wasm_bindgen]
@@ -173,7 +174,8 @@ pub fn start() {
     let mut sim_time = 0.0f64;
 
     window.render_loop(move |mut frame_input| {
-        sim_time += frame_input.elapsed_time * TIME_WARP.with(|w| w.get());
+        // elapsed_time is in ms; divide by 1000 so sim_time tracks sim-seconds
+        sim_time += frame_input.elapsed_time / 1000.0 * TIME_WARP.with(|w| w.get());
         let t = sim_time as f32;
 
         control.handle_events(&mut camera, &mut frame_input.events);
