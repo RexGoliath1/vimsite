@@ -1,157 +1,229 @@
-use std::f64::consts::PI;
+use std::f32::consts::PI;
 
+use three_d::*;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
 
 // ---------------------------------------------------------------------------
-// Entry point — Phase 0 stub: 2D canvas with fake satellite positions
-// Replace with three-d WebGL2 render loop in Phase 1.
+// Constellation definitions (Keplerian elements — Phase 1 sim data)
+// Phase 2: replace with live TLE propagation via sgp4 crate
 // ---------------------------------------------------------------------------
 
-/// Called from gnss.html <script type="module"> after wasm-pack init().
+struct ConstellationDef {
+    rgb: [u8; 3],
+    alt_km: f32,
+    inc_deg: f32,
+    planes: u32,
+    sats_per_plane: u32,
+    raan_spacing_deg: f32,
+    raan_offset_deg: f32,
+}
+
+const SATS: &[ConstellationDef] = &[
+    ConstellationDef { rgb: [57, 255, 20],  alt_km: 20200.0, inc_deg: 55.0,  planes: 6, sats_per_plane: 4,  raan_spacing_deg: 60.0,  raan_offset_deg: 0.0  }, // GPS
+    ConstellationDef { rgb: [255, 68, 68],  alt_km: 19130.0, inc_deg: 64.8,  planes: 3, sats_per_plane: 8,  raan_spacing_deg: 120.0, raan_offset_deg: 15.0 }, // GLONASS
+    ConstellationDef { rgb: [0, 255, 204],  alt_km: 23222.0, inc_deg: 56.0,  planes: 3, sats_per_plane: 10, raan_spacing_deg: 120.0, raan_offset_deg: 40.0 }, // Galileo
+    ConstellationDef { rgb: [255, 170, 0],  alt_km: 21528.0, inc_deg: 55.0,  planes: 3, sats_per_plane: 8,  raan_spacing_deg: 120.0, raan_offset_deg: 80.0 }, // BeiDou MEO
+];
+
+const EARTH_R: f32 = 6371.0;     // km
+const MU: f32 = 398600.4418;     // km³/s²
+const TIME_WARP: f64 = 300.0;    // sim seconds per real second
+const RING_PTS: u32 = 80;        // points per orbit ring
+
+fn alt_norm(alt_km: f32) -> f32 { (EARTH_R + alt_km) / EARTH_R }
+
+fn period_s(alt_km: f32) -> f32 {
+    let a = EARTH_R + alt_km;
+    2.0 * PI * (a * a * a / MU).sqrt()
+}
+
+/// Keplerian position — TEME ≈ ECI at GNSS altitudes, fine for Phase 1 viz.
+/// Returns position in normalised units (Earth radius = 1.0).
+fn kpos(r: f32, inc: f32, raan: f32, m: f32) -> Vec3 {
+    let (xo, zo) = (r * m.cos(), r * m.sin());
+    let y  = zo * inc.sin();
+    let ze = zo * inc.cos();
+    vec3(xo * raan.cos() - ze * raan.sin(), y, xo * raan.sin() + ze * raan.cos())
+}
+
+// ---------------------------------------------------------------------------
+// Entry point — Phase 1: three-d WebGL2 render with Keplerian animation
+// ---------------------------------------------------------------------------
+
 #[wasm_bindgen(start)]
 pub fn start() {
-    let window = web_sys::window().expect("no window");
-    let document = window.document().expect("no document");
-    let canvas = document
+    let canvas = web_sys::window()
+        .expect("no window")
+        .document()
+        .expect("no document")
         .get_element_by_id("gnss-canvas")
         .expect("no #gnss-canvas")
         .dyn_into::<web_sys::HtmlCanvasElement>()
         .expect("not a canvas");
 
-    // Sync backing buffer to CSS display size
-    let w = canvas.client_width() as f64;
-    let h = canvas.client_height() as f64;
-    canvas.set_width(canvas.client_width() as u32);
-    canvas.set_height(canvas.client_height() as u32);
+    let window = Window::new(WindowSettings {
+        title: "gnss constellation".to_string(),
+        canvas: Some(canvas),
+        ..Default::default()
+    })
+    .expect("window");
 
-    let ctx = canvas
-        .get_context("2d")
-        .unwrap()
-        .unwrap()
-        .dyn_into::<web_sys::CanvasRenderingContext2d>()
-        .expect("no 2d context");
+    let context = window.gl();
 
-    let cx = w / 2.0;
-    let cy = h / 2.0;
-    let scale = w.min(h);
+    let mut camera = Camera::new_perspective(
+        window.viewport(),
+        vec3(0.0, 3.5, 9.0),
+        vec3(0.0, 0.0, 0.0),
+        vec3(0.0, 1.0, 0.0),
+        degrees(42.0),
+        0.1,
+        200.0,
+    );
+    // min/max distance clamp — partial mitigation for OrbitControl WASM zoom bug #403
+    let mut control = OrbitControl::new(camera.target(), 2.0, 25.0);
 
-    // Background
-    ctx.set_fill_style(&JsValue::from_str("#000000"));
-    ctx.fill_rect(0.0, 0.0, w, h);
+    // Earth sphere (Earth radius = 1.0 in scene units)
+    let earth = Gm::new(
+        Mesh::new(&context, &CpuMesh::sphere(32)),
+        ColorMaterial {
+            color: Srgba::new(8, 20, 8, 255),
+            ..Default::default()
+        },
+    );
 
-    // Earth
-    ctx.begin_path();
-    ctx.arc(cx, cy, scale * 0.10, 0.0, 2.0 * PI).unwrap();
-    ctx.set_fill_style(&JsValue::from_str("#071207"));
-    ctx.fill();
-    ctx.set_stroke_style(&JsValue::from_str("#39ff14"));
-    ctx.set_line_width(1.5);
-    ctx.stroke();
+    // Equatorial ring
+    let eq_ring = Gm::new(
+        Mesh::new(&context, &CpuMesh::circle(128)),
+        ColorMaterial {
+            color: Srgba::new(20, 60, 20, 255),
+            ..Default::default()
+        },
+    );
 
-    // Fake constellation planes: (color, rx_frac, ry_frac, tilt_offset, n_sats)
-    let planes: &[(&str, f64, f64, f64, u32)] = &[
-        ("#39ff14", 0.43, 0.20, 0.0, 32),        // GPS — neon green
-        ("#ffab40", 0.38, 0.17, PI / 5.0, 28),   // GLONASS — orange
-        ("#80cbc4", 0.48, 0.22, PI / 3.0, 28),   // Galileo — teal
-        ("#b0bec5", 0.41, 0.19, PI * 2.0 / 5.0, 46), // BeiDou — grey-blue
-    ];
+    // Build orbit rings (static geometry) and satellite instance meshes
+    let ring_dot = CpuMesh::sphere(3);
+    let sat_dot  = CpuMesh::sphere(4);
+    let ring_scale = Mat4::from_scale(0.009);
+    let sat_scale  = Mat4::from_scale(0.04);
 
-    for (color, rx_f, ry_f, tilt, n) in planes {
-        let rx = scale * rx_f;
-        let ry = scale * ry_f;
-        let cos_t = tilt.cos();
-        let sin_t = tilt.sin();
-
-        // Orbit ellipse (dim)
-        ctx.set_stroke_style(&JsValue::from_str(color));
-        ctx.set_line_width(0.5);
-        ctx.set_global_alpha(0.25);
-        ctx.begin_path();
-        let steps = 64u32;
-        for k in 0..=steps {
-            let a = k as f64 * 2.0 * PI / steps as f64;
-            let x = cx + rx * a.cos() * cos_t - ry * a.sin() * sin_t;
-            let y = cy + rx * a.cos() * sin_t + ry * a.sin() * cos_t;
-            if k == 0 {
-                ctx.move_to(x, y);
-            } else {
-                ctx.line_to(x, y);
-            }
-        }
-        ctx.close_path();
-        ctx.stroke();
-
-        // Satellite dots (full brightness)
-        ctx.set_fill_style(&JsValue::from_str(color));
-        ctx.set_global_alpha(1.0);
-        for j in 0..*n {
-            let a = j as f64 * 2.0 * PI / *n as f64;
-            let x = cx + rx * a.cos() * cos_t - ry * a.sin() * sin_t;
-            let y = cy + rx * a.cos() * sin_t + ry * a.sin() * cos_t;
-            ctx.begin_path();
-            ctx.arc(x, y, 2.5, 0.0, 2.0 * PI).unwrap();
-            ctx.fill();
-        }
+    // Runtime state captured into render loop closure
+    struct SatState {
+        r: f32, inc: f32, rsp: f32, roff: f32, mm: f32,
+        planes: u32, sats_per_plane: u32,
     }
 
-    // Status overlay
-    ctx.set_global_alpha(1.0);
-    ctx.set_font("11px 'IBM Plex Mono', monospace");
-    ctx.set_fill_style(&JsValue::from_str("#39ff14"));
-    ctx.fill_text("TLE: 134 satellites (simulated)", 14.0, h - 28.0)
-        .unwrap();
-    ctx.set_fill_style(&JsValue::from_str("#3a5a3a"));
-    ctx.fill_text("phase-1: three-d WebGL2 pending", 14.0, h - 12.0)
-        .unwrap();
+    let mut orbit_gms: Vec<Gm<InstancedMesh, ColorMaterial>> = Vec::new();
+    let mut sat_gms:   Vec<Gm<InstancedMesh, ColorMaterial>> = Vec::new();
+    let mut states:    Vec<SatState> = Vec::new();
+
+    for def in SATS {
+        let r    = alt_norm(def.alt_km);
+        let inc  = def.inc_deg.to_radians();
+        let rsp  = def.raan_spacing_deg.to_radians();
+        let roff = def.raan_offset_deg.to_radians();
+        let mm   = 2.0 * PI / period_s(def.alt_km);
+
+        let sat_col  = Srgba::new(def.rgb[0], def.rgb[1], def.rgb[2], 255);
+        let ring_col = Srgba::new(def.rgb[0] / 7, def.rgb[1] / 7, def.rgb[2] / 7, 255);
+
+        // Orbit ring: RING_PTS dots per plane × planes
+        let ring_xforms: Vec<Mat4> = (0..def.planes)
+            .flat_map(|p| {
+                let raan = roff + p as f32 * rsp;
+                (0..RING_PTS).map(move |i| {
+                    let a = i as f32 * 2.0 * PI / RING_PTS as f32;
+                    Mat4::from_translation(kpos(r, inc, raan, a)) * ring_scale
+                })
+            })
+            .collect();
+
+        orbit_gms.push(Gm::new(
+            InstancedMesh::new(
+                &context,
+                &Instances { transformations: ring_xforms, ..Default::default() },
+                &ring_dot,
+            ),
+            ColorMaterial { color: ring_col, ..Default::default() },
+        ));
+
+        // Satellite mesh — identity transforms, updated every frame
+        let n = def.planes * def.sats_per_plane;
+        sat_gms.push(Gm::new(
+            InstancedMesh::new(
+                &context,
+                &Instances { transformations: vec![Mat4::identity(); n as usize], ..Default::default() },
+                &sat_dot,
+            ),
+            ColorMaterial { color: sat_col, ..Default::default() },
+        ));
+
+        states.push(SatState { r, inc, rsp, roff, mm, planes: def.planes, sats_per_plane: def.sats_per_plane });
+    }
+
+    let mut sim_time = 0.0f64;
+
+    window.render_loop(move |mut frame_input| {
+        sim_time += frame_input.elapsed_time * TIME_WARP;
+        let t = sim_time as f32;
+
+        control.handle_events(&mut camera, &mut frame_input.events);
+        camera.set_viewport(frame_input.viewport);
+
+        // Update satellite positions each frame
+        for (idx, s) in states.iter().enumerate() {
+            let xforms: Vec<Mat4> = (0..s.planes)
+                .flat_map(|p| {
+                    let raan = s.roff + p as f32 * s.rsp;
+                    (0..s.sats_per_plane).map(move |i| {
+                        let ma = i as f32 * 2.0 * PI / s.sats_per_plane as f32 + s.mm * t;
+                        Mat4::from_translation(kpos(s.r, s.inc, raan, ma)) * sat_scale
+                    })
+                })
+                .collect();
+            sat_gms[idx].geometry.set_instances(&Instances {
+                transformations: xforms,
+                ..Default::default()
+            });
+        }
+
+        let mut objs: Vec<&dyn Object> = Vec::new();
+        objs.push(&earth);
+        objs.push(&eq_ring);
+        for g in &orbit_gms { objs.push(g); }
+        for g in &sat_gms   { objs.push(g); }
+
+        frame_input
+            .screen()
+            .clear(ClearState { red: Some(0.01), green: Some(0.01), blue: Some(0.01), alpha: Some(1.0), depth: Some(1.0) })
+            .render(&camera, objs, &[]);
+
+        FrameOutput::default()
+    });
 }
 
 // ---------------------------------------------------------------------------
-// TLE fetch
+// Phase 2 stubs: TLE fetch + SGP4 propagation
 // ---------------------------------------------------------------------------
 
-const TLE_URL: &str =
-    "https://celestrak.org/NORAD/elements/gp.php?GROUP=gnss&FORMAT=json";
+const TLE_URL: &str = "https://celestrak.org/NORAD/elements/gp.php?GROUP=gnss&FORMAT=json";
 
-/// Fetch GNSS TLE JSON from Celestrak.
-/// Caches result in the browser Cache API (12 h TTL) via JS interop.
-/// Returns the raw JSON string on success.
+#[allow(dead_code)]
 async fn fetch_tles() -> Result<String, JsValue> {
     // TODO: check Cache API for fresh entry (< 12 h old)
     // TODO: if stale/missing, fetch TLE_URL via gloo_net::http::Request
     // TODO: store response in Cache API with x-fetched-at timestamp header
-    // TODO: return JSON string
     todo!("fetch_tles not yet implemented")
 }
 
-// ---------------------------------------------------------------------------
-// SGP4 propagation
-// ---------------------------------------------------------------------------
-
 /// Parse Celestrak OMM JSON and propagate all satellites to current time.
 /// Returns a JsValue array of {name, x, y, z} objects (TEME frame, km).
-///
-/// Note: TEME ≈ ECI at GNSS altitudes — GMST rotation skipped for Phase 1.
+/// Note: TEME ≈ ECI at GNSS altitudes — GMST rotation deferred to Phase 2.
 #[wasm_bindgen]
 pub fn propagate(tle_json: &str) -> Result<JsValue, JsValue> {
     // TODO: deserialise tle_json into Vec<sgp4::Elements>
-    // TODO: compute minutes_since_epoch for each element (current UTC time)
-    // TODO: for each element: Constants::from_elements() + constants.propagate()
-    // TODO: collect [name, x, y, z] into a JS-friendly array
+    // TODO: for each: Constants::from_elements() + constants.propagate(minutes)
     // TODO: return via serde_wasm_bindgen::to_value()
     let _ = tle_json;
     todo!("propagate not yet implemented")
-}
-
-// ---------------------------------------------------------------------------
-// Scene rendering
-// ---------------------------------------------------------------------------
-
-/// Initialise the three-d scene: Earth sphere + satellite PointCloud.
-/// Called once after the wasm module is ready and canvas is in the DOM.
-fn render_scene() {
-    // TODO: create three_d::Window from canvas element id "gnss-canvas"
-    // TODO: add Earth sphere (unit sphere, phosphor green wireframe or texture)
-    // TODO: add PointCloud for satellite positions
-    // TODO: add OrbitControl (with scroll-clamp workaround for WASM bug #403)
-    // TODO: start render loop, updating satellite positions each frame
 }
