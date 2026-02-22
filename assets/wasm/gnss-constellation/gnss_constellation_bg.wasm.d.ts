@@ -2,7 +2,6 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const propagate: (a: number, b: number) => [number, number, number];
-export const set_time_warp: (a: number) => void;
 export const start: () => void;
 export const wasm_bindgen__closure__destroy__h12d6647f1f8d439a: (a: number, b: number) => void;
 export const wasm_bindgen__closure__destroy__ha269213a20b3fe57: (a: number, b: number) => void;

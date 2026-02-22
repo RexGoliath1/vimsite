@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::f32::consts::PI;
 
 use three_d::*;
@@ -31,14 +30,11 @@ const EARTH_R: f32 = 6371.0;  // km
 const MU: f32 = 398600.4418;  // km³/s²
 const RING_PTS: u32 = 80;     // points per orbit ring
 
-thread_local! {
-    // sim seconds per real second; default = 120× → GPS orbit ≈ 6 min real time
-    static TIME_WARP: Cell<f64> = Cell::new(120.0);
-}
-
 #[wasm_bindgen]
-pub fn set_time_warp(factor: f64) {
-    TIME_WARP.with(|w| w.set(factor));
+extern "C" {
+    // Reads window.__gnssGetTimeWarp() set by the host page before WASM init
+    #[wasm_bindgen(js_name = "__gnssGetTimeWarp")]
+    fn get_time_warp() -> f64;
 }
 
 fn alt_norm(alt_km: f32) -> f32 { (EARTH_R + alt_km) / EARTH_R }
@@ -175,7 +171,7 @@ pub fn start() {
 
     window.render_loop(move |mut frame_input| {
         // elapsed_time is in ms; divide by 1000 so sim_time tracks sim-seconds
-        sim_time += frame_input.elapsed_time / 1000.0 * TIME_WARP.with(|w| w.get());
+        sim_time += frame_input.elapsed_time / 1000.0 * get_time_warp();
         let t = sim_time as f32;
 
         control.handle_events(&mut camera, &mut frame_input.events);
