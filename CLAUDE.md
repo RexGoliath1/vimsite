@@ -50,6 +50,7 @@ Always edit `src/`, never edit `assets/js/` directly.
 2. Agent scaffolds post HTML from template (use any existing post in `posts/`)
 3. Agent adds index row within `<!-- post-row -->` markers (newest first)
 4. Steven fills in all prose — **agents never write blog content**
+5. **Before committing**: `npx prettier --write <post.html> index.html`
 
 ## Post Types
 - `spoken` / `spkn` — transcribed from Spokenly, lightly edited (orange accent)
@@ -137,3 +138,4 @@ This project hits output token limits because features touch few files with larg
 - CSS + TS for a single feature = one commit
 - Never let uncommitted changes span multiple features
 - Always run `npm run build && npm run lint` before committing
+- **Content commits**: run `npx prettier --write <post.html> index.html` before staging — prose breaks Prettier reliably
