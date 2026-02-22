@@ -440,7 +440,7 @@ pub fn start() {
                 } else {
                     Srgba::new(base[0], base[1], base[2], 255)
                 };
-                let xf: Vec<Mat4> = if !cv[idx] {
+                let mut xf: Vec<Mat4> = if !cv[idx] {
                     vec![Mat4::from_scale(0.0)]
                 } else {
                     (0..s.planes).flat_map(|p| {
@@ -457,6 +457,7 @@ pub fn start() {
                         })
                     }).collect()
                 };
+                if xf.is_empty() { xf.push(Mat4::from_scale(0.0)); }
                 sat_gms[idx].geometry.set_instances(&Instances { transformations: xf, ..Default::default() });
             }
             for sg in &mut tle_sat_gms {
