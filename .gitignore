@@ -6,3 +6,7 @@
 node_modules/
 
 .lighthouseci/
+
+# Rust build artifacts
+viz/*/target/
+assets/wasm/*/package.json

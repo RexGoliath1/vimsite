@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>gnss constellation / vimsite</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap"
+    />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <style>
+      #gnss-canvas {
+        display: block;
+        width: 100%;
+        height: calc(100vh - 200px);
+        min-height: 400px;
+        background: #000;
+        border: 1px solid var(--border);
+      }
+
+      .gnss-status {
+        font-size: 0.75rem;
+        color: var(--fg-dim);
+        margin-bottom: 1.25rem;
+        font-style: italic;
+      }
+
+      .gnss-footer-note {
+        font-size: 0.65rem;
+        color: var(--border);
+        margin-top: 0.75rem;
+        letter-spacing: 0.03em;
+      }
+
+      .gnss-footer-note a {
+        color: var(--border);
+        text-decoration: underline;
+      }
+
+      .gnss-footer-note a:hover {
+        color: var(--fg-dim);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <nav style="font-size: 0.8rem; color: var(--fg-dim)">
+        <a href="index.html">~/log</a> / gnss-constellation
+      </nav>
+    </header>
+
+    <main>
+      <h1 style="font-size: 1.3rem; font-weight: 600; color: var(--accent); margin-bottom: 0.5rem">
+        gnss constellation
+      </h1>
+      <p class="gnss-status">station: offline &mdash; displaying TLE orbits only</p>
+
+      <canvas id="gnss-canvas" aria-label="GNSS constellation orbit visualization"></canvas>
+
+      <p class="gnss-footer-note">
+        TLE data:
+        <a href="https://celestrak.org/NORAD/elements/" target="_blank" rel="noopener"
+          >celestrak.org/NORAD/elements</a
+        >
+        &middot; updated every 12h
+      </p>
+    </main>
+
+    <nav class="post-nav">
+      <a class="back" href="index.html">← ~/log</a>
+    </nav>
+
+    <footer>
+      <p class="vim-hint">← → navigate · backspace ~/log</p>
+      <p class="footer-eof">EOF</p>
+    </footer>
+
+    <script src="assets/js/main.js" defer></script>
+    <script type="module">
+      import init from '/assets/wasm/gnss-constellation/gnss_constellation.js';
+      await init();
+      // start() is called automatically via #[wasm_bindgen(start)]
+    </script>
+  </body>
+</html>
