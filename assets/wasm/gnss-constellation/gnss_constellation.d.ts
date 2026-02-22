@@ -1,23 +1,45 @@
 /* tslint:disable */
 /* eslint-disable */
 
+export function get_sim_epoch(): number;
+
 /**
- * Parse Celestrak OMM JSON and propagate all satellites to current time.
- * Returns a JsValue array of {name, x, y, z} objects (TEME frame, km).
- * Note: TEME ≈ ECI at GNSS altitudes — GMST rotation deferred to Phase 2.
+ * Returns a JS Array of sky-plot entries for the current sim epoch.
+ * Each entry: `{ name, constellation, az_deg, el_deg, r, g, b }`
  */
-export function propagate(tle_json: string): any;
+export function get_sky_data(): any;
+
+export function inject_tles(json: string): void;
+
+export function set_ground_location(lat: number, lon: number): void;
+
+export function set_highlighted_constellation(idx: number): void;
+
+export function set_paused(on: boolean): void;
+
+export function set_sim_epoch(unix_s: number): void;
+
+export function set_visible_only(on: boolean): void;
 
 export function start(): void;
+
+export function toggle_constellation(idx: number, on: boolean): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
-    readonly propagate: (a: number, b: number) => [number, number, number];
+    readonly get_sim_epoch: () => number;
+    readonly get_sky_data: () => any;
+    readonly inject_tles: (a: number, b: number) => void;
+    readonly set_ground_location: (a: number, b: number) => void;
+    readonly set_highlighted_constellation: (a: number) => void;
+    readonly set_paused: (a: number) => void;
+    readonly set_sim_epoch: (a: number) => void;
+    readonly set_visible_only: (a: number) => void;
     readonly start: () => void;
-    readonly wasm_bindgen__closure__destroy__h12d6647f1f8d439a: (a: number, b: number) => void;
-    readonly wasm_bindgen__closure__destroy__ha269213a20b3fe57: (a: number, b: number) => void;
+    readonly toggle_constellation: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__h9ce5017ecb4fb027: (a: number, b: number) => void;
     readonly wasm_bindgen__closure__destroy__h5a7df7e0ff64d37c: (a: number, b: number) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_1: (a: number, b: number, c: any) => void;
@@ -33,7 +55,6 @@ export interface InitOutput {
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_start: () => void;
 }
 

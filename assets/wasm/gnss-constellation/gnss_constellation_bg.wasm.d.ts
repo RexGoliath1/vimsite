@@ -1,10 +1,17 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
-export const propagate: (a: number, b: number) => [number, number, number];
+export const get_sim_epoch: () => number;
+export const get_sky_data: () => any;
+export const inject_tles: (a: number, b: number) => void;
+export const set_ground_location: (a: number, b: number) => void;
+export const set_highlighted_constellation: (a: number) => void;
+export const set_paused: (a: number) => void;
+export const set_sim_epoch: (a: number) => void;
+export const set_visible_only: (a: number) => void;
 export const start: () => void;
-export const wasm_bindgen__closure__destroy__h12d6647f1f8d439a: (a: number, b: number) => void;
-export const wasm_bindgen__closure__destroy__ha269213a20b3fe57: (a: number, b: number) => void;
+export const toggle_constellation: (a: number, b: number) => void;
+export const wasm_bindgen__closure__destroy__h9ce5017ecb4fb027: (a: number, b: number) => void;
 export const wasm_bindgen__closure__destroy__h5a7df7e0ff64d37c: (a: number, b: number) => void;
 export const wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_1: (a: number, b: number, c: any) => void;
@@ -20,5 +27,4 @@ export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) =>
 export const __wbindgen_exn_store: (a: number) => void;
 export const __externref_table_alloc: () => number;
 export const __wbindgen_externrefs: WebAssembly.Table;
-export const __externref_table_dealloc: (a: number) => void;
 export const __wbindgen_start: () => void;
