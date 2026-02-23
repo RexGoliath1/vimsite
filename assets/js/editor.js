@@ -356,7 +356,7 @@
       const ov = el("div", "editor-overlay");
       const box = el("div", "editor-box");
       box.style.maxWidth = "450px";
-      let stage = 0;
+      let stage = 1;
       const msgs = [
         "press d to confirm \xB7 any other key to cancel",
         "press d again \xB7 any other key to cancel",

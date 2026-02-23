@@ -624,7 +624,7 @@ type PostType = 'spoken' | 'written';
     const ov = el('div', 'editor-overlay');
     const box = el('div', 'editor-box');
     box.style.maxWidth = '450px';
-    let stage = 0;
+    let stage = 1; // d that triggered this dialog counts as first confirmation
     const msgs = [
       'press d to confirm \u00b7 any other key to cancel',
       'press d again \u00b7 any other key to cancel',
