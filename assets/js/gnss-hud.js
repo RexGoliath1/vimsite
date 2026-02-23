@@ -234,19 +234,37 @@ function wireTimeControls() {
   wireTimeWarpSlider();
 }
 
+/**
+ * Convert log-scale slider position (0–100) to warp multiplier.
+ * 0 → 1×, 100 → 10^9 (~31.7 years/sec). Formula: 10^(v * 9 / 100).
+ */
+function sliderToWarp(v) {
+  return Math.max(1, Math.round(Math.pow(10, (v * 9) / 100)));
+}
+
+/** Human-readable time-rate label for a given warp multiplier. */
+function warpLabel(w) {
+  if (w < 60) return `${w}×`;
+  if (w < 3_600) return `${w}× (${(w / 60).toFixed(0)}m/s)`;
+  if (w < 86_400) return `${w}× (${(w / 3_600).toFixed(1)}h/s)`;
+  if (w < 604_800) return `${(w / 86_400).toFixed(1)}d/s`;
+  if (w < 31_536_000) return `${(w / 604_800).toFixed(1)}wk/s`;
+  return `${(w / 31_536_000).toFixed(1)}yr/s`;
+}
+
 function wireTimeWarpSlider() {
   const slider = document.getElementById('time-warp-slider');
   const label = document.getElementById('time-warp-value');
   if (!slider) return;
   // Push the slider's current HTML default into WASM state immediately
-  const initial = Number(slider.value);
+  const initial = sliderToWarp(Number(slider.value));
   wasm.set_time_warp(initial);
-  if (label) label.textContent = `${initial}×`;
+  if (label) label.textContent = warpLabel(initial);
   // Update WASM state on every slider change
   slider.addEventListener('input', () => {
-    const v = Number(slider.value);
-    wasm.set_time_warp(v);
-    if (label) label.textContent = `${v}×`;
+    const w = sliderToWarp(Number(slider.value));
+    wasm.set_time_warp(w);
+    if (label) label.textContent = warpLabel(w);
   });
 }
 
