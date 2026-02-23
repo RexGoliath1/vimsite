@@ -523,11 +523,15 @@
       }
 
       // ── WebGL2 availability probe ─────────────────────────────────────────
-      // Use a fresh canvas to avoid consuming a context slot on the real canvas.
+      // Probe with a scratch canvas; immediately release the context so Safari's
+      // strict 8-context limit is not consumed before the real renderer starts.
       // Firefox with resistFingerprinting, headless mode, or missing GPU drivers
       // returns null here. Show a clear message instead of a silent black screen.
-      const webgl2Probe = document.createElement('canvas').getContext('webgl2');
-      if (!webgl2Probe) {
+      const _probeCanvas = document.createElement('canvas');
+      const _probeCtx = _probeCanvas.getContext('webgl2');
+      _probeCtx?.getExtension('WEBGL_lose_context')?.loseContext();
+      const webgl2Ok = _probeCtx !== null;
+      if (!webgl2Ok) {
         showCompatError(
           'WebGL 2 is required but not available in this browser or context. ' +
             'Try Chrome, Edge, or Safari. ' +
@@ -565,136 +569,160 @@
         // Wire HUD controls and sky plot. These work because:
         // - GnssState was fully initialized in start() before event_loop.run() threw
         // - wasm_bindgen::throw_str does NOT poison the WASM instance
-        if (wasmOk)
+        if (wasmOk) {
           try {
             initHud(wasmModule);
-        initSkyPlot(wasmModule);
+            initSkyPlot(wasmModule);
 
-        // Wire constellation highlight on legend hover
-        document.querySelectorAll('.legend-item[data-const-idx]').forEach((el) => {
-          const idx = Number(el.dataset.constIdx);
-          el.addEventListener('mouseenter', () => wasmModule.set_highlighted_constellation(idx));
-          el.addEventListener('mouseleave', () => wasmModule.set_highlighted_constellation(-1));
-        });
+            // Wire constellation highlight on legend hover
+            document.querySelectorAll('.legend-item[data-const-idx]').forEach((el) => {
+              const idx = Number(el.dataset.constIdx);
+              el.addEventListener('mouseenter', () =>
+                wasmModule.set_highlighted_constellation(idx),
+              );
+              el.addEventListener('mouseleave', () => wasmModule.set_highlighted_constellation(-1));
+            });
 
-        // ── Screen-space axis labels ─────────────────────────────────────
-        const axisLabelContainer = document.getElementById('axis-labels');
-        const gnssCanvas = document.getElementById('gnss-canvas');
-        const AXIS_TIP_R = 2.5; // must match Rust axis_max_r
+            // ── Screen-space axis labels ─────────────────────────────────────
+            const axisLabelContainer = document.getElementById('axis-labels');
+            const gnssCanvas = document.getElementById('gnss-canvas');
+            const AXIS_TIP_R = 2.5; // must match Rust axis_max_r
 
-        // Label definitions: [id, 3D position (fn of gmst), color, text]
-        // ECEF positions are static; ECI positions rotate with GMST
-        function makeAxisLabels() {
-          return [
-            { id: 'lbl-ecef-x', pos: () => [AXIS_TIP_R, 0, 0], color: '#ff5050', text: 'X (ecef)' },
-            { id: 'lbl-ecef-y', pos: () => [0, AXIS_TIP_R, 0], color: '#50ff50', text: 'Y (ecef)' },
-            { id: 'lbl-ecef-z', pos: () => [0, 0, AXIS_TIP_R], color: '#5050ff', text: 'Z (ecef)' },
-            {
-              id: 'lbl-eci-x',
-              pos: (g) => [AXIS_TIP_R * Math.cos(g), AXIS_TIP_R * Math.sin(g), 0],
-              color: '#ffa050',
-              text: 'X (eci)',
-            },
-            {
-              id: 'lbl-eci-y',
-              pos: (g) => [-AXIS_TIP_R * Math.sin(g), AXIS_TIP_R * Math.cos(g), 0],
-              color: '#a050ff',
-              text: 'Y (eci)',
-            },
-            { id: 'lbl-eci-z', pos: () => [0, 0, AXIS_TIP_R], color: '#50a0ff', text: 'Z (eci)' },
-          ];
-        }
-
-        // Create label spans
-        const axisLabels = makeAxisLabels();
-        for (const lbl of axisLabels) {
-          const span = document.createElement('span');
-          span.id = lbl.id;
-          span.style.cssText = `position:absolute;font:10px 'IBM Plex Mono',monospace;color:${lbl.color};display:none;white-space:nowrap;text-shadow:0 0 4px #000`;
-          span.textContent = lbl.text;
-          axisLabelContainer.appendChild(span);
-        }
-
-        // Project a 3D scene position to canvas-relative screen coordinates.
-        // vpMatrix: column-major [f64 × 16] from get_camera_vp_matrix()
-        function project3d(pos, vpMatrix, canvasRect) {
-          const [x, y, z] = pos;
-          const m = vpMatrix;
-          // Column-major: col0=[m0,m1,m2,m3], col1=[m4,m5,m6,m7], col2=[m8,m9,m10,m11], col3=[m12,m13,m14,m15]
-          const clipX = m[0] * x + m[4] * y + m[8] * z + m[12];
-          const clipY = m[1] * x + m[5] * y + m[9] * z + m[13];
-          const clipW = m[3] * x + m[7] * y + m[11] * z + m[15];
-          if (Math.abs(clipW) < 1e-6) return null;
-          const ndcX = clipX / clipW;
-          const ndcY = clipY / clipW;
-          const ndcZ = (m[2] * x + m[6] * y + m[10] * z + m[14]) / clipW;
-          if (ndcZ < -1 || ndcZ > 1) return null; // clipped
-          const sx = (ndcX + 1) * 0.5 * canvasRect.width;
-          const sy = (1 - ndcY) * 0.5 * canvasRect.height; // flip Y
-          return { x: sx, y: sy };
-        }
-
-        // GMST helper (matches Rust coords::gmst_rad)
-        function gmstRad(epochS) {
-          const d = epochS / 86400.0 - 10957.5; // days from J2000.0
-          return (((280.46061837 + 360.98564736629 * d) * Math.PI) / 180.0) % (2 * Math.PI);
-        }
-
-        function updateAxisLabels() {
-          requestAnimationFrame(updateAxisLabels);
-          if (!wasmModule.get_camera_vp_matrix) return;
-
-          const showEcef = document.getElementById('toggle-ecef-axes')?.checked ?? false;
-          const showEci = document.getElementById('toggle-eci-axes')?.checked ?? false;
-
-          let vpMatrix;
-          let epochS;
-          try {
-            vpMatrix = wasmModule.get_camera_vp_matrix();
-            epochS = wasmModule.get_sim_epoch();
-          } catch {
-            return;
-          }
-
-          if (!vpMatrix || vpMatrix.length < 16) return;
-
-          const gmst = gmstRad(epochS);
-          const rect = gnssCanvas.getBoundingClientRect();
-          const containerRect = gnssCanvas.parentElement.getBoundingClientRect();
-          // Offset: canvas may be offset within its container
-          const offsetX = rect.left - containerRect.left;
-          const offsetY = rect.top - containerRect.top;
-
-          for (const lbl of axisLabels) {
-            const span = document.getElementById(lbl.id);
-            if (!span) continue;
-            const isEcef = lbl.id.includes('ecef');
-            const isEci = lbl.id.includes('eci');
-            const visible = (isEcef && showEcef) || (isEci && showEci);
-            if (!visible) {
-              span.style.display = 'none';
-              continue;
+            // Label definitions: [id, 3D position (fn of gmst), color, text]
+            // ECEF positions are static; ECI positions rotate with GMST
+            function makeAxisLabels() {
+              return [
+                {
+                  id: 'lbl-ecef-x',
+                  pos: () => [AXIS_TIP_R, 0, 0],
+                  color: '#ff5050',
+                  text: 'X (ecef)',
+                },
+                {
+                  id: 'lbl-ecef-y',
+                  pos: () => [0, AXIS_TIP_R, 0],
+                  color: '#50ff50',
+                  text: 'Y (ecef)',
+                },
+                {
+                  id: 'lbl-ecef-z',
+                  pos: () => [0, 0, AXIS_TIP_R],
+                  color: '#5050ff',
+                  text: 'Z (ecef)',
+                },
+                {
+                  id: 'lbl-eci-x',
+                  pos: (g) => [AXIS_TIP_R * Math.cos(g), AXIS_TIP_R * Math.sin(g), 0],
+                  color: '#ffa050',
+                  text: 'X (eci)',
+                },
+                {
+                  id: 'lbl-eci-y',
+                  pos: (g) => [-AXIS_TIP_R * Math.sin(g), AXIS_TIP_R * Math.cos(g), 0],
+                  color: '#a050ff',
+                  text: 'Y (eci)',
+                },
+                {
+                  id: 'lbl-eci-z',
+                  pos: () => [0, 0, AXIS_TIP_R],
+                  color: '#50a0ff',
+                  text: 'Z (eci)',
+                },
+              ];
             }
 
-            const pos3d = lbl.pos(gmst);
-            const screen = project3d(pos3d, vpMatrix, rect);
-            if (!screen) {
-              span.style.display = 'none';
-              continue;
+            // Create label spans
+            const axisLabels = makeAxisLabels();
+            for (const lbl of axisLabels) {
+              const span = document.createElement('span');
+              span.id = lbl.id;
+              span.style.cssText = `position:absolute;font:10px 'IBM Plex Mono',monospace;color:${lbl.color};display:none;white-space:nowrap;text-shadow:0 0 4px #000`;
+              span.textContent = lbl.text;
+              axisLabelContainer.appendChild(span);
             }
 
-            span.style.display = 'block';
-            span.style.left = offsetX + screen.x + 4 + 'px';
-            span.style.top = offsetY + screen.y - 7 + 'px';
+            // Project a 3D scene position to canvas-relative screen coordinates.
+            // vpMatrix: column-major [f64 × 16] from get_camera_vp_matrix()
+            function project3d(pos, vpMatrix, canvasRect) {
+              const [x, y, z] = pos;
+              const m = vpMatrix;
+              // Column-major: col0=[m0,m1,m2,m3], col1=[m4,m5,m6,m7], col2=[m8,m9,m10,m11], col3=[m12,m13,m14,m15]
+              const clipX = m[0] * x + m[4] * y + m[8] * z + m[12];
+              const clipY = m[1] * x + m[5] * y + m[9] * z + m[13];
+              const clipW = m[3] * x + m[7] * y + m[11] * z + m[15];
+              if (Math.abs(clipW) < 1e-6) return null;
+              const ndcX = clipX / clipW;
+              const ndcY = clipY / clipW;
+              const ndcZ = (m[2] * x + m[6] * y + m[10] * z + m[14]) / clipW;
+              if (ndcZ < -1 || ndcZ > 1) return null; // clipped
+              const sx = (ndcX + 1) * 0.5 * canvasRect.width;
+              const sy = (1 - ndcY) * 0.5 * canvasRect.height; // flip Y
+              return { x: sx, y: sy };
+            }
+
+            // GMST helper (matches Rust coords::gmst_rad)
+            function gmstRad(epochS) {
+              const d = epochS / 86400.0 - 10957.5; // days from J2000.0
+              return (((280.46061837 + 360.98564736629 * d) * Math.PI) / 180.0) % (2 * Math.PI);
+            }
+
+            function updateAxisLabels() {
+              requestAnimationFrame(updateAxisLabels);
+              if (!wasmModule.get_camera_vp_matrix) return;
+
+              const showEcef = document.getElementById('toggle-ecef-axes')?.checked ?? false;
+              const showEci = document.getElementById('toggle-eci-axes')?.checked ?? false;
+
+              let vpMatrix;
+              let epochS;
+              try {
+                vpMatrix = wasmModule.get_camera_vp_matrix();
+                epochS = wasmModule.get_sim_epoch();
+              } catch {
+                return;
+              }
+
+              if (!vpMatrix || vpMatrix.length < 16) return;
+
+              const gmst = gmstRad(epochS);
+              const rect = gnssCanvas.getBoundingClientRect();
+              const containerRect = gnssCanvas.parentElement.getBoundingClientRect();
+              // Offset: canvas may be offset within its container
+              const offsetX = rect.left - containerRect.left;
+              const offsetY = rect.top - containerRect.top;
+
+              for (const lbl of axisLabels) {
+                const span = document.getElementById(lbl.id);
+                if (!span) continue;
+                const isEcef = lbl.id.includes('ecef');
+                const isEci = lbl.id.includes('eci');
+                const visible = (isEcef && showEcef) || (isEci && showEci);
+                if (!visible) {
+                  span.style.display = 'none';
+                  continue;
+                }
+
+                const pos3d = lbl.pos(gmst);
+                const screen = project3d(pos3d, vpMatrix, rect);
+                if (!screen) {
+                  span.style.display = 'none';
+                  continue;
+                }
+
+                span.style.display = 'block';
+                span.style.left = offsetX + screen.x + 4 + 'px';
+                span.style.top = offsetY + screen.y - 7 + 'px';
+              }
+            }
+            requestAnimationFrame(updateAxisLabels);
+          } catch (e) {
+            console.error('[gnss] HUD init failed:', e);
+            showCompatError(
+              'HUD initialization failed. The 3D scene may still render but controls will not work.',
+            );
           }
-        }
-        requestAnimationFrame(updateAxisLabels);
-      } catch (e) {
-        console.error('[gnss] HUD init failed:', e);
-        showCompatError('HUD initialization failed. The 3D scene may still render but controls will not work.');
-      }
-      } // end if (wasmOk)
-      } // end if (webgl2Probe)
+        } // end if (wasmOk)
+      } // end if (webgl2Ok)
     </script>
   </body>
 </html>
