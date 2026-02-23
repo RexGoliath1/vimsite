@@ -487,25 +487,87 @@
 
     <script src="assets/js/main.js" defer></script>
     <script type="module">
+      // ── Browser compatibility ─────────────────────────────────────────────
+      // Chrome/Edge (Chromium) + Safari: full support, hardware-accelerated WebGL2.
+      // Firefox desktop: WebGL2 available, but the winit throw_str mechanism (see
+      //   below) may interact differently with SpiderMonkey in some versions. If the
+      //   canvas stays black, check the browser console for a RuntimeError.
+      // Edge on Windows: works but ANGLE (DirectX translation) adds CPU overhead vs
+      //   Metal on Apple Silicon. No code fix; it's a driver/GPU-path issue.
+      // Headless CI: Chromium supports WebGL2 headlessly with --use-angle=gl.
+      //   Firefox headless does NOT support WebGL2 (Mozilla bug #1375585, unfixed).
+      //   WebKit headless same. Firefox/Safari testing requires xvfb or real hardware.
+
       import initWasm, * as wasmModule from '/assets/wasm/gnss-constellation/gnss_constellation.js';
       import { initHud } from '/assets/js/gnss-hud.js';
       import { initSkyPlot } from '/assets/js/gnss-skyplot.js';
 
-      // initWasm() rejects on WASM because winit's EventLoop::run() calls
-      // wasm_bindgen::throw_str() to hand control back to the JS event loop.
-      // The render loop is already running via rAF; STATE is intact.
-      // We MUST wire HUD controls after the throw, not inside the try block.
-      try {
-        await initWasm();
-      } catch (_e) {
-        // Expected winit behaviour — not an error
+      // Show a styled error overlay inside the canvas container.
+      function showCompatError(msg) {
+        const container = document.querySelector('.gnss-viz-container');
+        const err = document.createElement('div');
+        err.style.cssText =
+          'position:absolute;top:0;left:0;width:100%;height:100%;' +
+          'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+          'background:#000;color:var(--fg);font:0.85rem/1.6 var(--font-mono);' +
+          'padding:2rem;box-sizing:border-box;text-align:center;z-index:10';
+        err.innerHTML =
+          '<p style="color:var(--accent);margin-bottom:1rem">!! renderer error</p>' +
+          '<p style="max-width:500px;color:var(--fg-dim)">' +
+          msg +
+          '</p>' +
+          '<p style="margin-top:1.5rem;font-size:0.75rem;color:var(--border)">' +
+          'check browser console for details · works in Chrome and Safari' +
+          '</p>';
+        container.appendChild(err);
       }
 
-      // Wire HUD controls and sky plot. These work because:
-      // - GnssState was fully initialized in start() before event_loop.run() threw
-      // - wasm_bindgen::throw_str does NOT poison the WASM instance
-      try {
-        initHud(wasmModule);
+      // ── WebGL2 availability probe ─────────────────────────────────────────
+      // Use a fresh canvas to avoid consuming a context slot on the real canvas.
+      // Firefox with resistFingerprinting, headless mode, or missing GPU drivers
+      // returns null here. Show a clear message instead of a silent black screen.
+      const webgl2Probe = document.createElement('canvas').getContext('webgl2');
+      if (!webgl2Probe) {
+        showCompatError(
+          'WebGL 2 is required but not available in this browser or context. ' +
+            'Try Chrome, Edge, or Safari. ' +
+            'Firefox in private/strict mode may disable WebGL.',
+        );
+      } else {
+        // ── WASM init ─────────────────────────────────────────────────────
+        // initWasm() throws because winit's EventLoop::run() calls
+        // wasm_bindgen::throw_str() to hand control back to the JS event loop.
+        // This produces `new Error("Using exceptions for control flow...")`.
+        // The WASM instance is NOT poisoned by this throw; exports remain callable.
+        // IMPORTANT: a WebAssembly.RuntimeError means an actual Rust panic (.expect()
+        // or unreachable). That must NOT be swallowed — surface it to the user.
+        let wasmOk = false;
+        try {
+          await initWasm();
+          wasmOk = true; // only reached if initWasm resolves without throwing
+        } catch (e) {
+          if (e instanceof WebAssembly.RuntimeError) {
+            // Real WASM panic — .expect() failed, unreachable hit, etc.
+            // Most likely cause: WebGL2 context creation failed inside three-d.
+            console.error('[gnss] WASM RuntimeError (Rust panic):', e);
+            showCompatError(
+              'WASM renderer panicked during startup. ' +
+                'This can happen if the WebGL2 context could not be created ' +
+                '(driver issue, hardware limit, or browser restriction).',
+            );
+          } else {
+            // Expected winit control-flow throw — WASM instance is intact.
+            // GnssState was fully initialized before EventLoop::run() threw.
+            wasmOk = true;
+          }
+        }
+
+        // Wire HUD controls and sky plot. These work because:
+        // - GnssState was fully initialized in start() before event_loop.run() threw
+        // - wasm_bindgen::throw_str does NOT poison the WASM instance
+        if (wasmOk)
+          try {
+            initHud(wasmModule);
         initSkyPlot(wasmModule);
 
         // Wire constellation highlight on legend hover
@@ -629,7 +691,10 @@
         requestAnimationFrame(updateAxisLabels);
       } catch (e) {
         console.error('[gnss] HUD init failed:', e);
+        showCompatError('HUD initialization failed. The 3D scene may still render but controls will not work.');
       }
+      } // end if (wasmOk)
+      } // end if (webgl2Probe)
     </script>
   </body>
 </html>
