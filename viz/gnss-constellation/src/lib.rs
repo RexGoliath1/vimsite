@@ -226,8 +226,14 @@ pub fn get_sky_data() -> JsValue {
                     *c_idx,
                     sat_idx,
                 );
+                // sat_ecef_km is populated in tle_store.records order,
+                // so sat_idx directly indexes the matching TLE record.
+                let name = st.tle_store.records
+                    .get(sat_idx)
+                    .map(|r| r.name.clone())
+                    .unwrap_or_default();
                 Some(ground::SkySat {
-                    name: String::new(),
+                    name,
                     constellation: *c_idx,
                     az_deg: az as f32,
                     el_deg: el as f32,

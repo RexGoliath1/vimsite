@@ -116,12 +116,33 @@ function wireOverlayToggles() {
   }
 }
 
+// ─── Satellite short-label helper ─────────────────────────────────────────────
+// Derives a stable 2–4 char label from a Celestrak TLE object_name.
+// GPS:     "(PRN 18)" in name → "G18";  else trailing number → "G12"
+// Galileo: "GSAT0214"         → "E14"
+// BeiDou:  "BEIDOU-3 M14"     → "C14"
+// GLONASS: "COSMOS 2557"      → "R57";  "GLONASS-M 734" → "R34"
+// Falls back to positional index (1-based) if no number found in name.
+export function satShortLabel(name, constellation, fallbackN) {
+  const PREFIXES = ['G', 'R', 'E', 'C', '?'];
+  const prefix = PREFIXES[constellation] ?? '?';
+  if (name) {
+    // GPS TLEs often include "(PRN XX)" — use that directly.
+    const prnMatch = name.match(/\(PRN\s*(\d+)\)/i);
+    if (prnMatch) return 'G' + prnMatch[1].padStart(2, '0');
+    // Strip parentheticals, then extract the last number in the base name.
+    const base = name.replace(/\(.*?\)/g, '').trim();
+    const numMatch = base.match(/(\d+)\s*$/);
+    if (numMatch) return prefix + numMatch[1].slice(-2).padStart(2, '0');
+  }
+  return prefix + String(fallbackN + 1).padStart(2, '0');
+}
+
 // ─── PRN list updater ─────────────────────────────────────────────────────────
 
 function startPrnListUpdater() {
   const container = document.getElementById('prn-list');
   if (!container) return;
-  const CONST_PREFIXES = ['G', 'R', 'E', 'C', '?'];
   const CONST_COLORS = ['#39ff14', '#ff4444', '#00ffcc', '#ffaa00', '#808080'];
   setInterval(() => {
     let sats;
@@ -142,13 +163,12 @@ function startPrnListUpdater() {
     for (const [c, group] of Object.entries(byConst)) {
       const ci = Number(c);
       const color = CONST_COLORS[ci] || '#808080';
-      const prefix = CONST_PREFIXES[ci] || '?';
       // Sort by elevation descending
       group.sort((a, b) => b.el_deg - a.el_deg);
       const boxes = group
-        .map((_, i) => {
-          const prn = String(i + 1).padStart(2, '0');
-          return `<span style="display:inline-block;background:${color};color:#000;width:18px;height:18px;line-height:18px;text-align:center;font-size:0.6rem;font-weight:600;margin:1px 1px 1px 0;border-radius:2px">${prefix}${prn}</span>`;
+        .map((sat, i) => {
+          const label = satShortLabel(sat.name, ci, i);
+          return `<span style="display:inline-block;background:${color};color:#000;width:18px;height:18px;line-height:18px;text-align:center;font-size:0.6rem;font-weight:600;margin:1px 1px 1px 0;border-radius:2px">${label}</span>`;
         })
         .join('');
       html += `<div style="margin-bottom:2px">${boxes}</div>`;

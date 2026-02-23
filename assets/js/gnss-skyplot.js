@@ -9,7 +9,7 @@
  *   renderSkyPlot(ctx, sats, width, height) — pure render function
  */
 
-const CONSTELLATION_NAMES = ['GPS', 'GLONASS', 'Galileo', 'BeiDou'];
+import { satShortLabel } from '/assets/js/gnss-hud.js';
 
 const COLORS = {
   background: '#000000',
@@ -63,7 +63,9 @@ export function initSkyPlot(wasmModule) {
   ctx.scale(dpr, dpr);
 
   // Clear trail history when simulation time is reset
-  document.addEventListener('gnss:time-reset', () => { _trailHistory.clear(); });
+  document.addEventListener('gnss:time-reset', () => {
+    _trailHistory.clear();
+  });
 
   function loop(timestamp) {
     if (timestamp - _lastRenderTime >= RENDER_INTERVAL_MS) {
@@ -273,7 +275,8 @@ export function renderSkyPlot(
     }
   }
 
-  for (const sat of sats) {
+  for (let _si = 0; _si < sats.length; _si++) {
+    const sat = sats[_si];
     const { name, az_deg, el_deg, r, g, b } = sat;
 
     // Clamp elevation to valid range
@@ -319,7 +322,7 @@ export function renderSkyPlot(
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
-    const label = name || CONSTELLATION_NAMES[sat.constellation] || '?';
+    const label = satShortLabel(name, sat.constellation, _si);
     ctx.fillText(label, sx + glowRadius + 2, sy - 3);
 
     // C/N0 label below the name label
