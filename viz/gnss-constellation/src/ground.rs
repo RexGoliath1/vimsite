@@ -97,6 +97,8 @@ pub struct SkySat {
     pub r: u8,
     pub g: u8,
     pub b: u8,
+    /// Simulated carrier-to-noise density ratio in dB-Hz. Range ~20–55.
+    pub c_n0: f32,
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +160,46 @@ pub fn sky_plot_jsvalue(sats: &[SkySat]) -> JsValue {
     use serde::Serialize as _;
     let ser = serde_wasm_bindgen::Serializer::json_compatible();
     sats.serialize(&ser).unwrap_or(JsValue::NULL)
+}
+
+// ---------------------------------------------------------------------------
+// C/N0 simulation
+// ---------------------------------------------------------------------------
+
+/// Simulate carrier-to-noise density ratio (dB-Hz) as a function of elevation
+/// angle and a simple ionospheric model.
+///
+/// Model:
+///   base = 47.0 (peak C/N0 at zenith in ideal conditions)
+///   elevation factor: +8.0 * sin(el_rad)  (better at high elevation)
+///   ionospheric loss: proportional to geomagnetic latitude and local solar time
+///     - iono_loss peaks at ~14:00 local solar time, at low geomagnetic latitudes
+///     - max iono_loss ~4 dB-Hz on L1 (simplified)
+///   noise jitter: deterministic per-satellite variation using (constellation*7 + sat_idx*13) % 10 → ±2 dB-Hz
+///
+/// Returns a value clamped to [20.0, 55.0].
+pub fn simulate_c_n0(
+    el_deg: f32,
+    obs_lat_deg: f64,
+    obs_lon_deg: f64,
+    unix_s: f64,
+    constellation: u8,
+    sat_idx: usize,
+) -> f32 {
+    let el_rad = el_deg.to_radians();
+    let base_cn0 = 47.0_f32 + 8.0 * el_rad.sin();
+
+    let lst_hours = (unix_s / 3600.0 % 24.0 + obs_lon_deg / 15.0).rem_euclid(24.0);
+    let iono_peak = ((lst_hours - 14.0) * std::f64::consts::PI / 12.0)
+        .cos()
+        .max(0.0);
+    let geo_lat_factor = 1.0 - (obs_lat_deg.abs() / 90.0);
+    let iono_loss = (iono_peak * geo_lat_factor * 4.0) as f32;
+
+    let jitter =
+        ((constellation as usize * 7 + sat_idx * 13) % 10) as f32 * 0.4 - 2.0;
+
+    (base_cn0 - iono_loss + jitter).clamp(20.0, 55.0)
 }
 
 // ---------------------------------------------------------------------------
@@ -314,6 +356,18 @@ mod tests {
         assert_eq!(buf[6], 0.0);
         assert_eq!(buf[7], 0.0);
         assert_eq!(buf[8], 1.0);
+    }
+
+    // --- simulate_c_n0 ---
+
+    #[test]
+    fn test_simulate_c_n0_range() {
+        // zenith satellite should have high C/N0
+        let cn0 = simulate_c_n0(90.0, 0.0, 0.0, 0.0, 0, 0);
+        assert!(cn0 >= 40.0 && cn0 <= 55.0, "zenith cn0={}", cn0);
+        // near-horizon satellite should have low C/N0
+        let cn0_low = simulate_c_n0(5.0, 0.0, 0.0, 50400.0, 0, 0); // 14:00 LST at equator
+        assert!(cn0_low >= 20.0 && cn0_low <= 45.0, "horizon cn0={}", cn0_low);
     }
 
     /// Buffer capacity must be 6 × number of visible satellites.

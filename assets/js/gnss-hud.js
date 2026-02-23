@@ -38,14 +38,18 @@ export function initHud(wasmModule) {
 
   wireConstellationToggles();
   wireVisibleOnlyToggle();
+  wireElevMaskSlider();
+  wireOverlayToggles();
   wireGroundLocation();
   wireTimeControls();
   startClockDisplay();
   startScrubberSync();
+  startPrnListUpdater();
 
   // async work — do not block caller
   fetchAndApplyGeolocation();
   fetchAndInjectTles();
+  fetchAndInjectBorders();
 }
 
 /**
@@ -78,6 +82,81 @@ function wireVisibleOnlyToggle() {
   });
 }
 
+// ─── elevation mask slider ───────────────────────────────────────────────────
+
+function wireElevMaskSlider() {
+  const slider = document.getElementById('elev-mask-slider');
+  const label = document.getElementById('elev-mask-value');
+  if (!slider) return;
+  slider.addEventListener('input', () => {
+    const v = Number(slider.value);
+    if (label) label.textContent = `${v}°`;
+    if (wasm.set_elev_mask) wasm.set_elev_mask(v);
+  });
+}
+
+// ─── overlay toggles ─────────────────────────────────────────────────────────
+
+function wireOverlayToggles() {
+  const toggles = [
+    { id: 'toggle-inc-rings', fn: 'set_show_inc_rings' },
+    { id: 'toggle-ecef-axes', fn: 'set_show_ecef_axes' },
+    { id: 'toggle-eci-axes', fn: 'set_show_eci_axes' },
+    { id: 'toggle-borders', fn: 'set_show_borders' },
+    { id: 'toggle-elev-cone', fn: 'set_show_elev_cone' },
+  ];
+  for (const { id, fn } of toggles) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.addEventListener('change', () => {
+      if (wasm[fn]) wasm[fn](el.checked);
+    });
+    // Set initial WASM state
+    if (wasm[fn]) wasm[fn](el.checked);
+  }
+}
+
+// ─── PRN list updater ─────────────────────────────────────────────────────────
+
+function startPrnListUpdater() {
+  const container = document.getElementById('prn-list');
+  if (!container) return;
+  const CONST_PREFIXES = ['G', 'R', 'E', 'C', '?'];
+  const CONST_COLORS = ['#39ff14', '#ff4444', '#00ffcc', '#ffaa00', '#808080'];
+  setInterval(() => {
+    let sats;
+    try {
+      sats = wasm.get_sky_data();
+    } catch {
+      return;
+    }
+    if (!Array.isArray(sats)) return;
+    // Group by constellation
+    const byConst = {};
+    for (const sat of sats) {
+      const c = sat.constellation;
+      if (!byConst[c]) byConst[c] = [];
+      byConst[c].push(sat);
+    }
+    let html = '';
+    for (const [c, group] of Object.entries(byConst)) {
+      const ci = Number(c);
+      const color = CONST_COLORS[ci] || '#808080';
+      const prefix = CONST_PREFIXES[ci] || '?';
+      // Sort by elevation descending
+      group.sort((a, b) => b.el_deg - a.el_deg);
+      const boxes = group
+        .map((_, i) => {
+          const prn = String(i + 1).padStart(2, '0');
+          return `<span style="display:inline-block;background:${color};color:#000;width:18px;height:18px;line-height:18px;text-align:center;font-size:0.6rem;font-weight:600;margin:1px 1px 1px 0;border-radius:2px">${prefix}${prn}</span>`;
+        })
+        .join('');
+      html += `<div style="margin-bottom:2px">${boxes}</div>`;
+    }
+    container.innerHTML = html || '<span style="color:#3a6a3a">no sats</span>';
+  }, 1000);
+}
+
 // ─── ground location ─────────────────────────────────────────────────────────
 
 function wireGroundLocation() {
@@ -89,7 +168,10 @@ function wireGroundLocation() {
   const latEl = document.getElementById('ground-lat');
   const lonEl = document.getElementById('ground-lon');
   for (const el of [latEl, lonEl]) {
-    if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyManualLocation(); });
+    if (el)
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') applyManualLocation();
+      });
   }
 }
 
@@ -137,6 +219,7 @@ function wireTimeControls() {
     btnReset.addEventListener('click', () => {
       const nowS = Date.now() / 1000;
       wasm.set_sim_epoch(nowS);
+      document.dispatchEvent(new CustomEvent('gnss:time-reset'));
     });
   }
 
@@ -151,19 +234,37 @@ function wireTimeControls() {
   wireTimeWarpSlider();
 }
 
+/**
+ * Convert log-scale slider position (0–100) to warp multiplier.
+ * 0 → 1×, 100 → 10^9 (~31.7 years/sec). Formula: 10^(v * 9 / 100).
+ */
+function sliderToWarp(v) {
+  return Math.max(1, Math.round(Math.pow(10, (v * 9) / 100)));
+}
+
+/** Human-readable time-rate label for a given warp multiplier. */
+function warpLabel(w) {
+  if (w < 60) return `${w}×`;
+  if (w < 3_600) return `${w}× (${(w / 60).toFixed(0)}m/s)`;
+  if (w < 86_400) return `${w}× (${(w / 3_600).toFixed(1)}h/s)`;
+  if (w < 604_800) return `${(w / 86_400).toFixed(1)}d/s`;
+  if (w < 31_536_000) return `${(w / 604_800).toFixed(1)}wk/s`;
+  return `${(w / 31_536_000).toFixed(1)}yr/s`;
+}
+
 function wireTimeWarpSlider() {
   const slider = document.getElementById('time-warp-slider');
   const label = document.getElementById('time-warp-value');
   if (!slider) return;
   // Push the slider's current HTML default into WASM state immediately
-  const initial = Number(slider.value);
+  const initial = sliderToWarp(Number(slider.value));
   wasm.set_time_warp(initial);
-  if (label) label.textContent = `${initial}×`;
+  if (label) label.textContent = warpLabel(initial);
   // Update WASM state on every slider change
   slider.addEventListener('input', () => {
-    const v = Number(slider.value);
-    wasm.set_time_warp(v);
-    if (label) label.textContent = `${v}×`;
+    const w = sliderToWarp(Number(slider.value));
+    wasm.set_time_warp(w);
+    if (label) label.textContent = warpLabel(w);
   });
 }
 
@@ -194,7 +295,10 @@ function startClockDisplay() {
 function formatUtcClock(epochS) {
   const d = new Date(epochS * 1000);
   // toUTCString → "Thu, 20 Feb 2026 14:30:00 GMT" — strip seconds
-  return d.toUTCString().replace(/:\d{2} gmt$/i, ' utc').toLowerCase();
+  return d
+    .toUTCString()
+    .replace(/:\d{2} gmt$/i, ' utc')
+    .toLowerCase();
 }
 
 // ─── scrubber sync ───────────────────────────────────────────────────────────
@@ -215,18 +319,55 @@ function startScrubberSync() {
   }, 2000);
 }
 
+// ─── Country borders fetch ────────────────────────────────────────────────────
+
+const BORDERS_LOCAL_URL = '/assets/data/borders-110m.json';
+const BORDERS_CDN_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+
+async function fetchAndInjectBorders() {
+  if (!wasm.inject_borders) return; // WASM export not available
+  try {
+    let res = await fetch(BORDERS_LOCAL_URL);
+    if (!res.ok) throw new Error(`local borders HTTP ${res.status}`);
+    const json = await res.text();
+    wasm.inject_borders(json);
+  } catch (e) {
+    console.warn('[gnss-hud] local borders failed, trying CDN:', e);
+    try {
+      // CDN fallback — world-atlas TopoJSON, but our WASM expects the pre-processed
+      // segments format. The CDN file is a different format, so only the local copy
+      // is usable. Log and give up gracefully.
+      console.warn('[gnss-hud] CDN borders not compatible — borders disabled');
+    } catch (_) {
+      /* silent */
+    }
+  }
+}
+
 // ─── TLE fetch ───────────────────────────────────────────────────────────────
 
 async function fetchAndInjectTles() {
   const statusEl = document.getElementById('tle-status');
 
+  // Show fallback state immediately — user sees this during the async fetch
+  if (statusEl) {
+    statusEl.textContent = 'keplerian (loading…)';
+    statusEl.dataset.mode = 'fallback';
+  }
+
   try {
     const jsonText = await fetchTleWithCache();
     wasm.inject_tles(jsonText);
-    if (statusEl) statusEl.textContent = 'live tle';
+    if (statusEl) {
+      statusEl.textContent = 'live tle';
+      statusEl.dataset.mode = 'live';
+    }
   } catch (e) {
     console.error('[gnss-hud] TLE fetch failed:', e);
-    if (statusEl) statusEl.textContent = 'keplerian (offline)';
+    if (statusEl) {
+      statusEl.textContent = 'keplerian (offline)';
+      statusEl.dataset.mode = 'fallback';
+    }
   }
 }
 
@@ -247,7 +388,10 @@ async function fetchTleWithCache() {
   }
 
   const text = await fetchTleDirect();
-  const headers = new Headers({ 'content-type': 'application/json', 'x-fetched-at': String(Date.now()) });
+  const headers = new Headers({
+    'content-type': 'application/json',
+    'x-fetched-at': String(Date.now()),
+  });
   await cache.put(TLE_CACHE_KEY, new Response(text, { headers }));
   return text;
 }
