@@ -266,6 +266,14 @@ const EARTH_R: f32 = 6371.0;
 const MU: f32 = 398_600.4418;
 const RING_PTS: u32 = 240; // dense enough to appear solid
 
+/// J2 secular nodal precession rates (rad/s) per constellation, indexed 0=GPS..3=BeiDou.
+/// dΩ/dt = -3/2 * n * J2 * (R_E/a)² * cos(i)
+/// GPS:     a=26571 km, i=55°  → -7.80e-9 rad/s
+/// GLONASS: a=25501 km, i=64.8°→ -6.69e-9 rad/s
+/// Galileo: a=29593 km, i=56°  → -5.21e-9 rad/s
+/// BeiDou:  a=27899 km, i=55°  → -6.58e-9 rad/s
+const J2_RATES: [f64; 4] = [-7.80e-9, -6.69e-9, -5.21e-9, -6.58e-9];
+
 fn alt_norm(alt_km: f32) -> f32 {
     (EARTH_R + alt_km) / EARTH_R
 }
@@ -621,6 +629,9 @@ pub fn start() {
     // ── Country borders — built lazily when inject_borders() is called ────────
     let mut borders_gm: Option<Gm<Mesh, ColorMaterial>> = None;
 
+    // Capture simulation epoch at render-loop start — used as J2 precession reference.
+    let epoch_zero = STATE.with(|s| s.borrow().sim_epoch);
+
     window.render_loop(move |mut frame_input| {
         // ── 1. Advance sim clock ──────────────────────────────────────────
         let paused = STATE.with(|s| s.borrow().paused);
@@ -699,16 +710,35 @@ pub fn start() {
         });
         let cone_dirty = STATE.with(|s| s.borrow().cone_needs_rebuild);
 
-        // ── 4. Update Keplerian orbit ring colours (highlight / dim) ──────
-        for (i, og) in orbit_gms.iter_mut().enumerate() {
-            let base = SATS[i].rgb;
-            og.material.color = if !cv[i] {
+        // ── 4. Update Keplerian orbit ring colours + J2 precession ───────
+        for (ci, og) in orbit_gms.iter_mut().enumerate() {
+            let base = SATS[ci].rgb;
+            og.material.color = if !cv[ci] {
                 Srgba::new(0, 0, 0, 255)
-            } else if highlighted != -1 && highlighted != i as i32 {
+            } else if highlighted != -1 && highlighted != ci as i32 {
                 Srgba::new(base[0] / 10, base[1] / 10, base[2] / 10, 255)
             } else {
                 Srgba::new(base[0] / 3, base[1] / 3, base[2] / 3, 255)
             };
+
+            // Apply J2 secular nodal precession: RAAN drifts over sim time.
+            let def = &SATS[ci];
+            let r   = alt_norm(def.alt_km);
+            let inc = def.inc_deg.to_radians();
+            let rsp = def.raan_spacing_deg.to_radians();
+            let raan_base = def.raan_offset_deg.to_radians();
+            let raan_drift = (J2_RATES[ci] * (sim_epoch - epoch_zero)) as f32;
+
+            let ring_xforms: Vec<Mat4> = (0..def.planes)
+                .flat_map(|p| {
+                    let raan = raan_base + p as f32 * rsp + raan_drift;
+                    (0..RING_PTS).map(move |j| {
+                        let a = j as f32 * 2.0 * std::f32::consts::PI / RING_PTS as f32;
+                        Mat4::from_translation(kpos(r, inc, raan, a)) * ring_scale
+                    })
+                })
+                .collect();
+            og.geometry.set_instances(&Instances { transformations: ring_xforms, ..Default::default() });
         }
 
         // ── 5. Propagate satellites ───────────────────────────────────────
