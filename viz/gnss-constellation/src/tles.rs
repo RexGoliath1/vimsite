@@ -29,7 +29,9 @@ pub const CONSTELLATION_GPS: u8 = 0;
 pub const CONSTELLATION_GLONASS: u8 = 1;
 pub const CONSTELLATION_GALILEO: u8 = 2;
 pub const CONSTELLATION_BEIDOU: u8 = 3;
-pub const CONSTELLATION_OTHER: u8 = 4;
+pub const CONSTELLATION_QZSS: u8 = 4;   // Japan — Michibiki quasi-zenith satellites
+pub const CONSTELLATION_NAVIC: u8 = 5;  // India — IRNSS regional navigation
+pub const CONSTELLATION_OTHER: u8 = 6;  // SBAS augmentation sats and unknowns
 
 // ---------------------------------------------------------------------------
 // Celestrak OMM JSON schema (serde Deserialize)
@@ -294,6 +296,14 @@ fn classify_constellation(name: &str, _norad_id: u64) -> u8 {
     }
     if up.starts_with("BEIDOU") || up.starts_with("BDSM") || up.contains("BEIDOU") {
         return CONSTELLATION_BEIDOU;
+    }
+    // QZSS: Japan's quasi-zenith system. Celestrak names start with "MICHIBIKI" or "QZS-".
+    if up.starts_with("MICHIBIKI") || up.starts_with("QZS-") {
+        return CONSTELLATION_QZSS;
+    }
+    // NavIC/IRNSS: India's regional navigation system. Names start with "IRNSS-".
+    if up.starts_with("IRNSS-") || up.starts_with("NAVIC") {
+        return CONSTELLATION_NAVIC;
     }
 
     CONSTELLATION_OTHER

@@ -19,9 +19,9 @@ struct GnssState {
     sim_epoch: f64,
     paused: bool,
     visible_only: bool,
-    /// Indexed by tles::CONSTELLATION_* constants (0=GPS … 4=Other).
-    constellation_visible: [bool; 5],
-    /// -1 = none highlighted; 0-4 = one constellation highlighted.
+    /// Indexed by tles::CONSTELLATION_* constants (0=GPS … 6=Other).
+    constellation_visible: [bool; 7],
+    /// -1 = none highlighted; 0-6 = one constellation highlighted.
     highlighted: i32,
     /// Most-recent per-satellite ECEF positions (km) from TLE propagation.
     sat_ecef_km: Vec<(u8, [f64; 3])>,
@@ -54,7 +54,7 @@ impl Default for GnssState {
             sim_epoch: 0.0,
             paused: false,
             visible_only: false,
-            constellation_visible: [true; 5],
+            constellation_visible: [true; 7],
             highlighted: -1,
             sat_ecef_km: Vec::new(),
             time_warp: 120.0,
@@ -89,7 +89,7 @@ pub fn set_ground_location(lat: f64, lon: f64) {
 
 #[wasm_bindgen]
 pub fn toggle_constellation(idx: u32, on: bool) {
-    if idx < 5 {
+    if idx < 7 {
         STATE.with(|s| s.borrow_mut().constellation_visible[idx as usize] = on);
     }
 }
@@ -321,12 +321,14 @@ struct SatState {
 
 // ── Constellation colours (per-constellation material colour in TLE mode) ─────
 
-const CONST_COLORS: [[u8; 3]; 5] = [
-    [57, 255, 20],    // GPS      — neon green
-    [255, 68, 68],    // GLONASS  — red
-    [0, 255, 204],    // Galileo  — cyan
-    [255, 170, 0],    // BeiDou   — orange
-    [128, 128, 128],  // Other    — grey
+const CONST_COLORS: [[u8; 3]; 7] = [
+    [57, 255, 20],    // GPS      (0) — neon green
+    [255, 68, 68],    // GLONASS  (1) — red
+    [0, 255, 204],    // Galileo  (2) — cyan
+    [255, 170, 0],    // BeiDou   (3) — orange
+    [160, 80, 255],   // QZSS     (4) — violet
+    [255, 80, 160],   // NavIC    (5) — magenta
+    [128, 128, 128],  // Other    (6) — grey
 ];
 
 
@@ -781,7 +783,7 @@ pub fn start() {
                 [u[0] * 6371.0, u[1] * 6371.0, u[2] * 6371.0]
             };
 
-            for ci in 0..5usize {
+            for ci in 0..CONST_COLORS.len() {
                 let base = CONST_COLORS[ci];
                 tle_sat_gms[ci].material.color = if !cv[ci] {
                     Srgba::new(0, 0, 0, 255)

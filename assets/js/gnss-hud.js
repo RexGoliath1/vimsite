@@ -17,7 +17,7 @@ const TLE_URL = '/api/tle/gnss';
 const TLE_CACHE_KEY = TLE_URL;
 const TLE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
-const CONSTELLATION_IDS = ['gps', 'glonass', 'galileo', 'beidou'];
+const CONSTELLATION_IDS = ['gps', 'glonass', 'galileo', 'beidou', 'qzss', 'navic'];
 
 // current observer position (readable by getObserverLatLon)
 let observerLat = CHICAGO_LAT;
@@ -127,9 +127,11 @@ function wireOverlayToggles() {
 //            "GSAT0102 (GALILEO-FM2)"   → E02   (IOV flight model number)
 //            "GSAT0101 (GALILEO-PFM)"   → no digit → fallback E01
 //   GLONASS: "COSMOS 2433 (720)"        → R33   (last 2 of COSMOS number)
+//   QZSS:    "MICHIBIKI-2"              → J02   (Michibiki number)
+//   NavIC:   "IRNSS-1A"                → I01   (letter suffix A=1, B=2, …)
 // Falls back to prefix + (fallbackN+1) when no number can be extracted.
 export function satShortLabel(name, constellation, fallbackN) {
-  const PREFIXES = ['G', 'R', 'E', 'C', '?'];
+  const PREFIXES = ['G', 'R', 'E', 'C', 'J', 'I', '?'];
   const prefix = PREFIXES[constellation] ?? '?';
   if (name) {
     // GPS: "(PRN 25)" → G25
@@ -141,6 +143,15 @@ export function satShortLabel(name, constellation, fallbackN) {
     // Galileo FOC: "(GALILEO 5)" → E05, "(GALILEO-FM2)" → E02
     const galMatch = name.match(/\(GALILEO[- ]*(?:FM)?(\d+)\)/i);
     if (galMatch) return 'E' + galMatch[1].padStart(2, '0');
+    // QZSS: "MICHIBIKI-2" → J02, "MICHIBIKI-1R" → J01 (take first digit)
+    const qzssMatch = name.match(/MICHIBIKI[-\s]*(\d+)/i);
+    if (qzssMatch) return 'J' + qzssMatch[1].padStart(2, '0');
+    // NavIC/IRNSS: "IRNSS-1A" → I01, "IRNSS-1B" → I02, … (A=1, B=2, …)
+    const navicMatch = name.match(/IRNSS[-\s]*\d+([A-I])/i);
+    if (navicMatch) {
+      const n = navicMatch[1].toUpperCase().charCodeAt(0) - 64; // A→1, B→2, …
+      return 'I' + String(n).padStart(2, '0');
+    }
     // Fallback: strip parens, take last number from base name
     // GLONASS "COSMOS 2433" → last 2 of "2433" = "R33"
     const base = name.replace(/\(.*?\)/g, '').trim();
@@ -155,7 +166,7 @@ export function satShortLabel(name, constellation, fallbackN) {
 function startPrnListUpdater() {
   const container = document.getElementById('prn-list');
   if (!container) return;
-  const CONST_COLORS = ['#39ff14', '#ff4444', '#00ffcc', '#ffaa00', '#808080'];
+  const CONST_COLORS = ['#39ff14', '#ff4444', '#00ffcc', '#ffaa00', '#a050ff', '#ff50a0', '#808080'];
   setInterval(() => {
     let sats;
     try {
