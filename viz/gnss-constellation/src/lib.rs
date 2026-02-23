@@ -898,7 +898,7 @@ pub fn start() {
             let cpu = build_elev_cone(obs_n_cone, elev_mask);
             elev_cone_gm = Some(Gm::new(
                 Mesh::new(&context, &cpu),
-                ColorMaterial { color: Srgba::new(200, 200, 200, 55), ..Default::default() }, // light gray, semi-transparent
+                ColorMaterial { color: Srgba::new(200, 200, 200, 18), ..Default::default() }, // light gray, very faint outline only
             ));
             STATE.with(|s| s.borrow_mut().cone_needs_rebuild = false);
         } else if !show_elev_cone {
