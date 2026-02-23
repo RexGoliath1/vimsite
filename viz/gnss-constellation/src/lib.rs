@@ -907,7 +907,16 @@ pub fn start() {
             let cpu = build_elev_cone(obs_n_cone, elev_mask);
             elev_cone_gm = Some(Gm::new(
                 Mesh::new(&context, &cpu),
-                ColorMaterial { color: Srgba::new(200, 200, 200, 18), is_transparent: true, ..Default::default() }, // barely-visible ghost, alpha blending enabled
+                ColorMaterial {
+                    color: Srgba::new(200, 200, 200, 18),
+                    is_transparent: true,
+                    render_states: RenderStates {
+                        write_mask: WriteMask::COLOR, // no depth write — satellites behind cone stay visible
+                        blend: Blend::TRANSPARENCY,   // actual alpha blending (web-compatible)
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
             ));
             STATE.with(|s| s.borrow_mut().cone_needs_rebuild = false);
         } else if !show_elev_cone {
