@@ -278,7 +278,7 @@ const SATS: &[ConstellationDef] = &[
 
 const EARTH_R: f32 = 6371.0;
 const MU: f32 = 398_600.4418;
-const RING_PTS: u32 = 240; // dense enough to appear solid
+const RING_PTS: u32 = 120; // 120 pts/ring — visually solid, half the Mat4 cost of 240
 
 /// J2 secular nodal precession rates (rad/s) per constellation, indexed 0=GPS..3=BeiDou.
 /// dΩ/dt = -3/2 * n * J2 * (R_E/a)² * cos(i)
@@ -657,6 +657,11 @@ pub fn start() {
     // Capture simulation epoch at render-loop start — used as J2 precession reference.
     let epoch_zero = STATE.with(|s| s.borrow().sim_epoch);
 
+    // Ring dirty-check: skip Mat4 rebuild when sim is paused (epoch constant).
+    let mut last_ring_epoch: f64 = f64::NEG_INFINITY;
+    // SGP4 throttle: propagate at most every 100 ms wall-clock (~10 Hz).
+    let mut prop_timer_ms: f64 = 100.0; // start at threshold so first frame propagates
+
     window.render_loop(move |mut frame_input| {
         // ── 1. Advance sim clock ──────────────────────────────────────────
         let paused = STATE.with(|s| s.borrow().paused);
@@ -667,6 +672,8 @@ pub fn start() {
             });
         }
         let sim_epoch = STATE.with(|s| s.borrow().sim_epoch);
+
+        prop_timer_ms += frame_input.elapsed_time;
 
         // ── 2. Spherical camera — mouse/scroll → azimuth/elevation/distance ──
         for event in frame_input.events.iter_mut() {
@@ -746,36 +753,49 @@ pub fn start() {
                 Srgba::new(base[0] / 3, base[1] / 3, base[2] / 3, 255)
             };
 
-            // Apply J2 secular nodal precession: RAAN drifts over sim time.
-            let def = &SATS[ci];
-            let r   = alt_norm(def.alt_km);
-            let inc = def.inc_deg.to_radians();
-            let rsp = def.raan_spacing_deg.to_radians();
-            let raan_base = def.raan_offset_deg.to_radians();
-            let raan_drift = (J2_RATES[ci] * (sim_epoch - epoch_zero)) as f32;
+            // Ring transforms are pure functions of sim_epoch. Skip rebuild when
+            // paused to avoid thousands of wasted Mat4 computations per frame.
+            if (sim_epoch - last_ring_epoch).abs() > 1e-9 {
+                let def = &SATS[ci];
+                let r   = alt_norm(def.alt_km);
+                let inc = def.inc_deg.to_radians();
+                let rsp = def.raan_spacing_deg.to_radians();
+                let raan_base = def.raan_offset_deg.to_radians();
+                let raan_drift = (J2_RATES[ci] * (sim_epoch - epoch_zero)) as f32;
 
-            let ring_xforms: Vec<Mat4> = (0..def.planes)
-                .flat_map(|p| {
-                    let raan = raan_base + p as f32 * rsp + raan_drift;
-                    (0..RING_PTS).map(move |j| {
-                        let a = j as f32 * 2.0 * std::f32::consts::PI / RING_PTS as f32;
-                        Mat4::from_translation(kpos(r, inc, raan, a)) * ring_scale
+                let ring_xforms: Vec<Mat4> = (0..def.planes)
+                    .flat_map(|p| {
+                        let raan = raan_base + p as f32 * rsp + raan_drift;
+                        (0..RING_PTS).map(move |j| {
+                            let a = j as f32 * 2.0 * std::f32::consts::PI / RING_PTS as f32;
+                            Mat4::from_translation(kpos(r, inc, raan, a)) * ring_scale
+                        })
                     })
-                })
-                .collect();
-            og.geometry.set_instances(&Instances { transformations: ring_xforms, ..Default::default() });
+                    .collect();
+                og.geometry.set_instances(&Instances { transformations: ring_xforms, ..Default::default() });
+            }
+        }
+        // Update dirty-check sentinel after processing all rings for this epoch.
+        if (sim_epoch - last_ring_epoch).abs() > 1e-9 {
+            last_ring_epoch = sim_epoch;
         }
 
-        // ── 5. Propagate satellites ───────────────────────────────────────
+        // ── 5. Propagate satellites — throttled to 10 Hz ─────────────────
         if has_tles {
-            // SGP4 propagation
-            let all_teme = STATE.with(|s| s.borrow().tle_store.propagate_all(sim_epoch));
-            let gmst = coords::gmst_rad(sim_epoch);
-            let ecef: Vec<(u8, [f64; 3])> = all_teme
-                .iter()
-                .map(|(c, t)| (*c, coords::teme_to_ecef(*t, gmst)))
-                .collect();
-            STATE.with(|s| s.borrow_mut().sat_ecef_km = ecef.clone());
+            let should_propagate = !paused && prop_timer_ms >= 100.0;
+            if should_propagate { prop_timer_ms = 0.0; }
+            let ecef: Vec<(u8, [f64; 3])> = if should_propagate {
+                let all_teme = STATE.with(|s| s.borrow().tle_store.propagate_all(sim_epoch));
+                let gmst = coords::gmst_rad(sim_epoch);
+                let new_ecef: Vec<(u8, [f64; 3])> = all_teme
+                    .iter()
+                    .map(|(c, t)| (*c, coords::teme_to_ecef(*t, gmst)))
+                    .collect();
+                STATE.with(|s| s.borrow_mut().sat_ecef_km = new_ecef.clone());
+                new_ecef
+            } else {
+                STATE.with(|s| s.borrow().sat_ecef_km.clone())
+            };
 
             // Observer ECEF km for elevation mask
             let obs_km = {
