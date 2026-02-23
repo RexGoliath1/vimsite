@@ -38,6 +38,23 @@
 
   injectJ2000();
 
+  // --- tree count --- (reads DOM so no hardcoding needed)
+  function updateTreeCount(): void {
+    const pre = document.querySelector<HTMLElement>('.tree-listing');
+    const countEl = document.getElementById('tree-count');
+    if (!pre || !countEl) return;
+    const dirs = pre.querySelectorAll('a.tree-dir').length;
+    const lines = (pre.textContent ?? '').split('\n');
+    const items = lines.filter(
+      (l) => (l.includes('├──') || l.includes('└──')) && !l.trimEnd().endsWith('/'),
+    ).length;
+    const d = dirs === 1 ? 'directory' : 'directories';
+    const i = items === 1 ? 'item' : 'items';
+    countEl.textContent = `${dirs} ${d}, ${items} ${i}`;
+  }
+
+  updateTreeCount();
+
   // --- lazy-load editor.js ---
   function loadEditor(fn: () => void): void {
     if (window.__editor) {

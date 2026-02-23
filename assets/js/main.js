@@ -26,6 +26,20 @@
       });
     }
     injectJ2000();
+    function updateTreeCount() {
+      const pre = document.querySelector(".tree-listing");
+      const countEl = document.getElementById("tree-count");
+      if (!pre || !countEl) return;
+      const dirs = pre.querySelectorAll("a.tree-dir").length;
+      const lines = (pre.textContent ?? "").split("\n");
+      const items = lines.filter(
+        (l) => (l.includes("\u251C\u2500\u2500") || l.includes("\u2514\u2500\u2500")) && !l.trimEnd().endsWith("/")
+      ).length;
+      const d = dirs === 1 ? "directory" : "directories";
+      const i = items === 1 ? "item" : "items";
+      countEl.textContent = `${dirs} ${d}, ${items} ${i}`;
+    }
+    updateTreeCount();
     function loadEditor(fn) {
       if (window.__editor) {
         fn();
