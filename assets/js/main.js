@@ -41,6 +41,25 @@
       ".ls-table tbody tr:not(.ls-group-year):not(.ls-group-month)"
     );
     let cur = -1;
+    const treeLinks = document.querySelectorAll(".tree-listing a");
+    let treeCur = -1;
+    let treeMode = false;
+    function selectTree(i) {
+      treeLinks.forEach((a) => a.classList.remove("tree-cursor"));
+      if (i >= 0 && i < treeLinks.length) {
+        treeLinks[i].classList.add("tree-cursor");
+        treeLinks[i].scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+    function enterTreeMode() {
+      treeMode = true;
+      treeCur = 0;
+      selectTree(treeCur);
+    }
+    function exitTreeMode() {
+      treeMode = false;
+      treeLinks.forEach((a) => a.classList.remove("tree-cursor"));
+    }
     function select(i) {
       rows.forEach((r) => r.classList.remove("selected"));
       if (i >= 0 && i < rows.length) {
@@ -63,6 +82,34 @@
       const target = e.target;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
       if (document.querySelector(".editor-overlay")) return;
+      if (e.key === "t" && !treeMode && !document.querySelector(".post-content")) {
+        if (!treeLinks.length) return;
+        e.preventDefault();
+        enterTreeMode();
+        return;
+      }
+      if ((e.key === "Escape" || e.key === "l") && treeMode) {
+        e.preventDefault();
+        exitTreeMode();
+        return;
+      }
+      if (treeMode) {
+        if (e.key === "j" || e.key === "ArrowDown") {
+          e.preventDefault();
+          treeCur = Math.min(treeCur + 1, treeLinks.length - 1);
+          selectTree(treeCur);
+        } else if (e.key === "k" || e.key === "ArrowUp") {
+          e.preventDefault();
+          treeCur = Math.max(treeCur - 1, 0);
+          selectTree(treeCur);
+        } else if (e.key === "Enter" && treeCur >= 0) {
+          const href = treeLinks[treeCur].getAttribute("href");
+          if (href && href !== "#") {
+            window.location.href = href;
+          }
+        }
+        return;
+      }
       if (e.key === "j" || e.key === "ArrowDown") {
         if (!rows.length) return;
         e.preventDefault();
