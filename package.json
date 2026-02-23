@@ -7,13 +7,14 @@
     "build:wasm:gnss": "wasm-pack build viz/gnss-constellation --target web --out-dir ../../assets/wasm/gnss-constellation && rm -f assets/wasm/gnss-constellation/.gitignore",
     "build": "esbuild src/main.ts --outfile=assets/js/main.js --bundle=false --format=iife --target=es2020 && esbuild src/editor.ts --outfile=assets/js/editor.js --bundle=false --format=iife --target=es2020",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ && stylelint 'assets/css/**/*.css' && tsc --noEmit",
+    "lint": "eslint src/ && stylelint 'assets/css/**/*.css' && tsc --noEmit && node scripts/check-html-scripts.js gnss.html",
     "lint:fix": "eslint src/ --fix && stylelint 'assets/css/**/*.css' --fix",
     "format": "prettier --write 'src/**/*.ts' 'assets/css/**/*.css' '*.html' 'posts/**/*.html'",
     "format:check": "prettier --check 'src/**/*.ts' 'assets/css/**/*.css' '*.html' 'posts/**/*.html'",
     "prepare": "husky"
   },
   "devDependencies": {
+    "acorn": "^8.0.0",
     "esbuild": "^0.24.0",
     "typescript": "^5.7.0",
     "eslint": "^9.0.0",
