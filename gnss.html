@@ -50,6 +50,8 @@
         top: 0;
         right: 0;
         width: 300px;
+        max-height: calc(100vh - 90px);
+        overflow-y: auto;
         z-index: 10;
         background: rgba(0, 0, 0, 0.88);
         border-left: 1px solid #1a3a1a;
@@ -60,6 +62,8 @@
         color: #7ab87a;
         box-sizing: border-box;
         line-height: 1.5;
+        scrollbar-width: thin;
+        scrollbar-color: #1a3a1a transparent;
       }
 
       #hud-panel .hud-row {
