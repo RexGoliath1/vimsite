@@ -29,11 +29,30 @@
         margin: 0;
       }
 
-      /* ── canvas container — flex row: canvas | HUD ──────────────────────── */
+      /* ── canvas container — flex row: left-panel | canvas | right-panel ─── */
       .gnss-viz-container {
         display: flex;
         align-items: flex-start;
         width: 100%;
+      }
+
+      /* ── Left panel: sky plot + PRN badges ───────────────────────────────── */
+      #left-panel {
+        flex-shrink: 0;
+        width: 280px;
+        max-height: calc(100vh - 80px);
+        overflow-y: auto;
+        background: #000;
+        border: 1px solid var(--border);
+        border-right: none;
+        padding: 8px 10px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.85rem;
+        color: #7ab87a;
+        box-sizing: border-box;
+        line-height: 1.5;
+        scrollbar-width: thin;
+        scrollbar-color: #1a3a1a transparent;
       }
 
       /* Wrapper lets axis-label overlay be positioned relative to canvas only */
@@ -50,19 +69,20 @@
         min-height: 500px;
         background: #000;
         border: 1px solid var(--border);
-        border-right: none; /* HUD left-border serves as the divider */
+        border-left: none;
+        border-right: none;
       }
 
-      /* ── HUD panel ────────────────────────────────────────────────────── */
+      /* ── Right panel: controls ────────────────────────────────────────────── */
       #hud-panel {
         flex-shrink: 0;
-        width: 320px;
+        width: 300px;
         max-height: calc(100vh - 80px);
         overflow-y: auto;
         z-index: 10;
         background: #000;
         border: 1px solid var(--border);
-        border-left: none; /* canvas right-side already has a border */
+        border-left: none;
         padding: 8px 12px;
         font-family: 'IBM Plex Mono', monospace;
         font-size: 0.85rem;
@@ -127,19 +147,47 @@
         color: #39ff14;
       }
 
+      /* Small utility buttons (↵ location apply, etc.) */
       #hud-panel button {
         background: transparent;
         border: 1px solid #3a7a3a;
         color: #7acc7a;
         font-family: inherit;
         font-size: 0.8rem;
-        padding: 2px 6px;
+        padding: 2px 8px;
         cursor: pointer;
         line-height: 1.4;
       }
 
       #hud-panel button:hover {
         border-color: #7acc7a;
+        color: #a0e0a0;
+        background: rgba(57, 255, 20, 0.05);
+      }
+
+      /* Large play/now time-control buttons — full row width, easy to click */
+      .hud-time-btns {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 5px;
+      }
+
+      .hud-time-btns button {
+        flex: 1;
+        padding: 9px 0;
+        font-size: 1.1rem;
+        letter-spacing: 0.04em;
+        border: 1px solid #3a7a3a;
+        background: transparent;
+        color: #7acc7a;
+        font-family: inherit;
+        cursor: pointer;
+        text-align: center;
+      }
+
+      .hud-time-btns button:hover {
+        border-color: #7acc7a;
+        background: rgba(57, 255, 20, 0.08);
         color: #a0e0a0;
       }
 
@@ -316,8 +364,8 @@
       /* ── Sky plot ─────────────────────────────────────────────────────── */
       #sky-plot-canvas {
         display: block;
-        margin-top: 6px;
         border: 1px solid #1a3a1a;
+        /* JS sets canvas.style.width/height to 260px; CSS just anchors display */
         width: 260px;
         height: 260px;
       }
@@ -364,6 +412,24 @@
       </div>
 
       <div class="gnss-viz-container">
+        <!-- Left panel: sky plot + visible PRN badges ─────────────────────── -->
+        <div id="left-panel">
+          <!-- Sky plot canvas (260×260 logical px) -->
+          <canvas
+            id="sky-plot-canvas"
+            width="260"
+            height="260"
+            aria-label="Sky plot: satellite azimuth/elevation from observer"
+          ></canvas>
+
+          <!-- PRN badges — always visible, no scroll needed -->
+          <div id="prn-list-panel">
+            <div class="hud-section-label">visible prns</div>
+            <div id="prn-list"></div>
+          </div>
+        </div>
+        <!-- /#left-panel -->
+
         <!-- Canvas wrapper keeps axis-label overlay scoped to the canvas area -->
         <div class="gnss-canvas-wrap">
           <canvas id="gnss-canvas" aria-label="GNSS constellation orbit visualization"></canvas>
@@ -392,8 +458,8 @@
             <span id="tle-status">keplerian</span>
           </div>
 
-          <!-- Time controls -->
-          <div class="hud-row">
+          <!-- Time controls — large buttons, full row width -->
+          <div class="hud-time-btns">
             <button id="btn-pause" title="pause / play">⏸</button>
             <button id="btn-reset-time" title="jump to now">now</button>
           </div>
@@ -441,6 +507,18 @@
               <input id="toggle-navic" type="checkbox" checked title="NavIC" />
               <span class="legend-dot" style="color: #ff50a0">●</span>
               <span class="legend-name">NavIC</span>
+            </div>
+            <div class="legend-item" data-const-idx="6">
+              <input
+                id="toggle-other"
+                type="checkbox"
+                checked
+                title="SBAS augmentation and unclassified"
+              />
+              <span class="legend-dot" style="color: #808080">●</span>
+              <span class="legend-name" title="WAAS · EGNOS · GAGAN · MSAS and other augmentation"
+                >SBAS/aug</span
+              >
             </div>
           </div>
 
@@ -500,20 +578,6 @@
               title="observer longitude"
             />
             <button id="btn-set-location" title="apply location">↵</button>
-          </div>
-
-          <!-- Sky plot canvas (260×260 logical px) -->
-          <canvas
-            id="sky-plot-canvas"
-            width="260"
-            height="260"
-            aria-label="Sky plot: satellite azimuth/elevation from observer"
-          ></canvas>
-
-          <!-- PRN list panel -->
-          <div id="prn-list-panel">
-            <div class="hud-section-label">visible prns</div>
-            <div id="prn-list"></div>
           </div>
         </div>
         <!-- /#hud-panel -->

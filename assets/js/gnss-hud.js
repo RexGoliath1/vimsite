@@ -17,7 +17,7 @@ const TLE_URL = '/api/tle/gnss';
 const TLE_CACHE_KEY = TLE_URL;
 const TLE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
-const CONSTELLATION_IDS = ['gps', 'glonass', 'galileo', 'beidou', 'qzss', 'navic'];
+const CONSTELLATION_IDS = ['gps', 'glonass', 'galileo', 'beidou', 'qzss', 'navic', 'other'];
 
 // current observer position (readable by getObserverLatLon)
 let observerLat = CHICAGO_LAT;
@@ -131,7 +131,7 @@ function wireOverlayToggles() {
 //   NavIC:   "IRNSS-1A"                → I01   (letter suffix A=1, B=2, …)
 // Falls back to prefix + (fallbackN+1) when no number can be extracted.
 export function satShortLabel(name, constellation, fallbackN) {
-  const PREFIXES = ['G', 'R', 'E', 'C', 'J', 'I', '?'];
+  const PREFIXES = ['G', 'R', 'E', 'C', 'J', 'I', 'A']; // A = Augmentation (SBAS/other)
   const prefix = PREFIXES[constellation] ?? '?';
   if (name) {
     // GPS: "(PRN 25)" → G25
