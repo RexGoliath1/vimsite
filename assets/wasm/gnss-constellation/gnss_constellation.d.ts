@@ -15,6 +15,13 @@ export function get_sim_epoch(): number;
  */
 export function get_sky_data(): any;
 
+/**
+ * Returns the number of TLE satellite records currently loaded.
+ * Call after inject_tles() to verify the JSON was successfully parsed.
+ * Returns 0 if inject_tles() has not been called or if the JSON failed to parse.
+ */
+export function get_tle_count(): number;
+
 export function inject_borders(json: string): void;
 
 export function inject_tles(json: string): void;
@@ -54,6 +61,7 @@ export interface InitOutput {
     readonly get_camera_vp_matrix: () => [number, number];
     readonly get_sim_epoch: () => number;
     readonly get_sky_data: () => any;
+    readonly get_tle_count: () => number;
     readonly inject_borders: (a: number, b: number) => void;
     readonly inject_tles: (a: number, b: number) => void;
     readonly set_elev_mask: (a: number) => void;

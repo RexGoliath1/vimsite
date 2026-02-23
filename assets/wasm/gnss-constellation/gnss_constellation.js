@@ -31,6 +31,17 @@ export function get_sky_data() {
 }
 
 /**
+ * Returns the number of TLE satellite records currently loaded.
+ * Call after inject_tles() to verify the JSON was successfully parsed.
+ * Returns 0 if inject_tles() has not been called or if the JSON failed to parse.
+ * @returns {number}
+ */
+export function get_tle_count() {
+    const ret = wasm.get_tle_count();
+    return ret >>> 0;
+}
+
+/**
  * @param {string} json
  */
 export function inject_borders(json) {

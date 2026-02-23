@@ -161,6 +161,14 @@ pub fn inject_borders(json: &str) {
     });
 }
 
+/// Returns the number of TLE satellite records currently loaded.
+/// Call after inject_tles() to verify the JSON was successfully parsed.
+/// Returns 0 if inject_tles() has not been called or if the JSON failed to parse.
+#[wasm_bindgen]
+pub fn get_tle_count() -> u32 {
+    STATE.with(|s| s.borrow().tle_store.records.len() as u32)
+}
+
 /// Returns the current camera view-projection matrix as a Vec of 16 f64 values (column-major).
 /// Each frame this is updated by the render loop. Used by JS for screen-space axis label projection.
 #[wasm_bindgen]

@@ -396,7 +396,14 @@ async function fetchAndInjectTles() {
   try {
     const jsonText = await fetchTleWithCache();
     wasm.inject_tles(jsonText);
-    setPropMode('live', 'live tle', '● SGP4 · live TLE');
+    // Verify the WASM actually parsed the records (get_tle_count() returns 0 on
+    // JSON parse failure, which inject_tles() silently swallows).
+    const loaded = wasm.get_tle_count ? wasm.get_tle_count() : -1;
+    if (loaded === 0) {
+      throw new Error('TLE JSON parsed to 0 records — likely a bad cache entry');
+    }
+    const countStr = loaded > 0 ? ` · ${loaded} sats` : '';
+    setPropMode('live', 'live tle', `● SGP4 · live TLE${countStr}`);
   } catch (e) {
     console.error('[gnss-hud] TLE fetch failed:', e);
     setPropMode(
@@ -419,16 +426,38 @@ async function fetchTleWithCache() {
   if (cached) {
     const fetchedAt = Number(cached.headers.get('x-fetched-at') ?? 0);
     if (Date.now() - fetchedAt < TLE_TTL_MS) {
-      return cached.text();
+      const text = await cached.text();
+      // Validate the cached response is a non-empty JSON array.
+      // If it's an HTML error page or empty, delete it and fetch fresh.
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return text;
+        }
+      } catch {
+        /* fall through */
+      }
+      console.warn('[gnss-hud] cached TLE response is invalid — deleting and re-fetching');
+      await cache.delete(TLE_CACHE_KEY);
     }
   }
 
   const text = await fetchTleDirect();
-  const headers = new Headers({
-    'content-type': 'application/json',
-    'x-fetched-at': String(Date.now()),
-  });
-  await cache.put(TLE_CACHE_KEY, new Response(text, { headers }));
+  // Only cache valid JSON arrays so a bad Celestrak response doesn't get stuck.
+  let validToCache = false;
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed) && parsed.length > 0) validToCache = true;
+  } catch {
+    /* leave validToCache = false */
+  }
+  if (validToCache) {
+    const headers = new Headers({
+      'content-type': 'application/json',
+      'x-fetched-at': String(Date.now()),
+    });
+    await cache.put(TLE_CACHE_KEY, new Response(text, { headers }));
+  }
   return text;
 }
 
