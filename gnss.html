@@ -29,22 +29,42 @@
         margin: 0;
       }
 
-      /* ── canvas container — flex row: left-panel | canvas | right-panel ─── */
+      /* ── canvas container — panels overlay on full-width canvas ─────────── */
       .gnss-viz-container {
-        display: flex;
-        align-items: flex-start;
+        position: relative;
         width: 100%;
+        height: calc(100vh - 80px);
+        overflow: hidden;
       }
 
-      /* ── Left panel: sky plot + PRN badges ───────────────────────────────── */
-      #left-panel {
-        flex-shrink: 0;
-        width: 280px;
-        max-height: calc(100vh - 80px);
-        overflow-y: auto;
+      /* Wrapper lets axis-label overlay be positioned relative to canvas only */
+      .gnss-canvas-wrap {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      #gnss-canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
         background: #000;
         border: 1px solid var(--border);
-        border-right: none;
+      }
+
+      /* ── Left panel: sky plot + PRN badges — overlays canvas left side ───── */
+      #left-panel {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        width: 280px;
+        height: 100%;
+        overflow-y: auto;
+        background: rgba(0, 8, 0, 0.93);
+        border-right: 1px solid var(--border);
         padding: 8px 10px;
         font-family: 'IBM Plex Mono', monospace;
         font-size: 0.85rem;
@@ -55,34 +75,17 @@
         scrollbar-color: #1a3a1a transparent;
       }
 
-      /* Wrapper lets axis-label overlay be positioned relative to canvas only */
-      .gnss-canvas-wrap {
-        flex: 1;
-        position: relative;
-        min-width: 0;
-      }
-
-      #gnss-canvas {
-        display: block;
-        width: 100%;
-        height: calc(100vh - 80px);
-        min-height: 500px;
-        background: #000;
-        border: 1px solid var(--border);
-        border-left: none;
-        border-right: none;
-      }
-
-      /* ── Right panel: controls ────────────────────────────────────────────── */
+      /* ── Right panel: controls — overlays canvas right side ──────────────── */
       #hud-panel {
-        flex-shrink: 0;
-        width: 300px;
-        max-height: calc(100vh - 80px);
-        overflow-y: auto;
+        position: absolute;
+        top: 0;
+        right: 0;
         z-index: 10;
-        background: #000;
-        border: 1px solid var(--border);
-        border-left: none;
+        width: 300px;
+        height: 100%;
+        overflow-y: auto;
+        background: rgba(0, 8, 0, 0.93);
+        border-left: 1px solid var(--border);
         padding: 8px 12px;
         font-family: 'IBM Plex Mono', monospace;
         font-size: 0.85rem;
@@ -238,8 +241,8 @@
       .legend-item {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 4px 5px;
+        gap: 5px;
+        padding: 2px 3px;
         border-radius: 2px;
         cursor: default;
         transition: background 0.1s;
@@ -251,15 +254,15 @@
 
       .legend-item input[type='checkbox'] {
         accent-color: #39ff14;
-        width: 13px;
-        height: 13px;
+        width: 11px;
+        height: 11px;
         margin: 0;
         cursor: pointer;
         flex-shrink: 0;
       }
 
       .legend-dot {
-        font-size: 1.4rem;
+        font-size: 1.1rem;
         line-height: 1;
         flex-shrink: 0;
       }
@@ -267,7 +270,7 @@
       .legend-name {
         flex: 1;
         letter-spacing: 0.04em;
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         color: #9dd49d;
       }
 
