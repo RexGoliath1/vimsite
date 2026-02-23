@@ -44,7 +44,7 @@ struct OmmRecord {
     object_name: String,
 
     #[serde(rename = "NORAD_CAT_ID")]
-    norad_cat_id: String,
+    norad_cat_id: u64,
 
     /// Epoch as "YYYY-DDD.FFFFFFFF" or "YYYY-MM-DDTHH:MM:SS[.sss]"
     #[serde(rename = "EPOCH")]
@@ -135,12 +135,8 @@ impl TleStore {
         let mut count = 0usize;
 
         for omm in &omm_records {
-            // --- Parse NORAD ID ---
-            let norad_id: u64 = omm
-                .norad_cat_id
-                .trim()
-                .parse()
-                .unwrap_or(0);
+            // --- Extract NORAD ID (already u64 from JSON) ---
+            let norad_id: u64 = omm.norad_cat_id;
 
             // --- Parse epoch to (year_2digit, day_of_year, unix_ts) ---
             let (epoch_year, epoch_doy, epoch_unix) =
