@@ -238,8 +238,8 @@
       .legend-item {
         display: flex;
         align-items: center;
-        gap: 5px;
-        padding: 2px 3px;
+        gap: 8px;
+        padding: 4px 5px;
         border-radius: 2px;
         cursor: default;
         transition: background 0.1s;
@@ -251,15 +251,15 @@
 
       .legend-item input[type='checkbox'] {
         accent-color: #39ff14;
-        width: 11px;
-        height: 11px;
+        width: 13px;
+        height: 13px;
         margin: 0;
         cursor: pointer;
         flex-shrink: 0;
       }
 
       .legend-dot {
-        font-size: 1.1rem;
+        font-size: 1.4rem;
         line-height: 1;
         flex-shrink: 0;
       }
@@ -267,7 +267,7 @@
       .legend-name {
         flex: 1;
         letter-spacing: 0.04em;
-        font-size: 0.95rem;
+        font-size: 1.1rem;
         color: #9dd49d;
       }
 
@@ -746,6 +746,26 @@
         requestAnimationFrame(updateAxisLabels);
       } catch (e) {
         console.error('[gnss] HUD init failed:', e);
+      }
+
+      // Keep the canvas GL buffer in sync with its CSS layout size.
+      // three-d initialises the buffer to window.innerWidth×innerHeight, but the
+      // canvas is a flex child narrower than the window. If the attributes don't
+      // match clientWidth/clientHeight the camera viewport and the pixel buffer
+      // disagree, shifting the Earth off-centre. ResizeObserver fixes this on
+      // every layout change (including first paint).
+      {
+        const _c = document.getElementById('gnss-canvas');
+        function _syncCanvasSize() {
+          const w = _c.clientWidth;
+          const h = _c.clientHeight;
+          if (w > 0 && h > 0 && (_c.width !== w || _c.height !== h)) {
+            _c.width = w;
+            _c.height = h;
+          }
+        }
+        _syncCanvasSize();
+        new ResizeObserver(_syncCanvasSize).observe(_c);
       }
     </script>
   </body>

@@ -78,6 +78,18 @@ export function initSkyPlot(wasmModule) {
         console.error('[gnss-skyplot] get_sky_data() failed:', err);
       }
 
+      // Dynamic trail cap: at high warp each frame covers many sim-seconds of
+      // arc. Cap points so total trail spans at most ~1800 sim-seconds, keeping
+      // the sky plot legible. Formula: points = 1800 / (interval_s * warp).
+      const _sliderEl = document.getElementById('time-warp-slider');
+      const _warpMultiplier = _sliderEl
+        ? Math.max(1, Math.round(Math.pow(10, (Number(_sliderEl.value) * 9) / 100)))
+        : 1;
+      const _dynamicMax = Math.max(
+        3,
+        Math.min(TRAIL_MAX_POINTS, Math.round(1800 / ((RENDER_INTERVAL_MS / 1000) * _warpMultiplier))),
+      );
+
       // Update trail history
       const now = performance.now();
       // Prune old entries across all trails
@@ -102,7 +114,7 @@ export function initSkyPlot(wasmModule) {
         const ny = fraction * Math.cos(azRad); // normalized y (-1..1)
         const trail = _trailHistory.get(key) || [];
         trail.push({ nx, ny, ts: now, r: sat.r, g: sat.g, b: sat.b });
-        if (trail.length > TRAIL_MAX_POINTS) trail.shift();
+        if (trail.length > _dynamicMax) trail.shift();
         _trailHistory.set(key, trail);
       }
 
