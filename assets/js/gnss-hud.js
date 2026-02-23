@@ -13,11 +13,11 @@ let scrubberIntervalId = null;
 
 const CHICAGO_LAT = 41.85;
 const CHICAGO_LON = -87.65;
-const TLE_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=gnss&FORMAT=json';
+const TLE_URL = '/api/tle/gnss';
 const TLE_CACHE_KEY = TLE_URL;
 const TLE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
-const CONSTELLATION_IDS = ['gps', 'glonass', 'galileo', 'beidou'];
+const CONSTELLATION_IDS = ['gps', 'glonass', 'galileo', 'beidou', 'qzss', 'navic', 'other'];
 
 // current observer position (readable by getObserverLatLon)
 let observerLat = CHICAGO_LAT;
@@ -116,13 +116,57 @@ function wireOverlayToggles() {
   }
 }
 
+// ─── Satellite short-label helper ─────────────────────────────────────────────
+// Derives a stable 2-char label from a Celestrak TLE OBJECT_NAME by checking
+// the parenthetical designator first (most authoritative), then the base name.
+//
+// Actual Celestrak formats (verified against live data):
+//   GPS:     "GPS BIIF-1  (PRN 25)"     → G25   (PRN is the signal PRN)
+//   BeiDou:  "BEIDOU-3 M1 (C19)"        → C19   (CXX is the BDS PRN slot)
+//   Galileo: "GSAT0201 (GALILEO 5)"     → E05   (FOC deployment sequence)
+//            "GSAT0102 (GALILEO-FM2)"   → E02   (IOV flight model number)
+//            "GSAT0101 (GALILEO-PFM)"   → no digit → fallback E01
+//   GLONASS: "COSMOS 2433 (720)"        → R33   (last 2 of COSMOS number)
+//   QZSS:    "MICHIBIKI-2"              → J02   (Michibiki number)
+//   NavIC:   "IRNSS-1A"                → I01   (letter suffix A=1, B=2, …)
+// Falls back to prefix + (fallbackN+1) when no number can be extracted.
+export function satShortLabel(name, constellation, fallbackN) {
+  const PREFIXES = ['G', 'R', 'E', 'C', 'J', 'I', 'A']; // A = Augmentation (SBAS/other)
+  const prefix = PREFIXES[constellation] ?? '?';
+  if (name) {
+    // GPS: "(PRN 25)" → G25
+    const prnMatch = name.match(/\(PRN\s*(\d+)\)/i);
+    if (prnMatch) return 'G' + prnMatch[1].padStart(2, '0');
+    // BeiDou: "(C19)" → C19  (actual BDS PRN slot — ALL BeiDou sats have this)
+    const bdsMatch = name.match(/\(C(\d{1,3})\)/);
+    if (bdsMatch) return 'C' + bdsMatch[1].padStart(2, '0');
+    // Galileo FOC: "(GALILEO 5)" → E05, "(GALILEO-FM2)" → E02
+    const galMatch = name.match(/\(GALILEO[- ]*(?:FM)?(\d+)\)/i);
+    if (galMatch) return 'E' + galMatch[1].padStart(2, '0');
+    // QZSS: "MICHIBIKI-2" → J02, "MICHIBIKI-1R" → J01 (take first digit)
+    const qzssMatch = name.match(/MICHIBIKI[-\s]*(\d+)/i);
+    if (qzssMatch) return 'J' + qzssMatch[1].padStart(2, '0');
+    // NavIC/IRNSS: "IRNSS-1A" → I01, "IRNSS-1B" → I02, … (A=1, B=2, …)
+    const navicMatch = name.match(/IRNSS[-\s]*\d+([A-I])/i);
+    if (navicMatch) {
+      const n = navicMatch[1].toUpperCase().charCodeAt(0) - 64; // A→1, B→2, …
+      return 'I' + String(n).padStart(2, '0');
+    }
+    // Fallback: strip parens, take last number from base name
+    // GLONASS "COSMOS 2433" → last 2 of "2433" = "R33"
+    const base = name.replace(/\(.*?\)/g, '').trim();
+    const numMatch = base.match(/(\d+)\s*$/);
+    if (numMatch) return prefix + numMatch[1].slice(-2).padStart(2, '0');
+  }
+  return prefix + String(fallbackN + 1).padStart(2, '0');
+}
+
 // ─── PRN list updater ─────────────────────────────────────────────────────────
 
 function startPrnListUpdater() {
   const container = document.getElementById('prn-list');
   if (!container) return;
-  const CONST_PREFIXES = ['G', 'R', 'E', 'C', '?'];
-  const CONST_COLORS = ['#39ff14', '#ff4444', '#00ffcc', '#ffaa00', '#808080'];
+  const CONST_COLORS = ['#39ff14', '#ff4444', '#00ffcc', '#ffaa00', '#a050ff', '#ff50a0', '#808080'];
   setInterval(() => {
     let sats;
     try {
@@ -142,13 +186,12 @@ function startPrnListUpdater() {
     for (const [c, group] of Object.entries(byConst)) {
       const ci = Number(c);
       const color = CONST_COLORS[ci] || '#808080';
-      const prefix = CONST_PREFIXES[ci] || '?';
       // Sort by elevation descending
       group.sort((a, b) => b.el_deg - a.el_deg);
       const boxes = group
-        .map((_, i) => {
-          const prn = String(i + 1).padStart(2, '0');
-          return `<span style="display:inline-block;background:${color};color:#000;width:18px;height:18px;line-height:18px;text-align:center;font-size:0.6rem;font-weight:600;margin:1px 1px 1px 0;border-radius:2px">${prefix}${prn}</span>`;
+        .map((sat, i) => {
+          const label = satShortLabel(sat.name, ci, i);
+          return `<span style="display:inline-block;background:${color};color:#000;width:18px;height:18px;line-height:18px;text-align:center;font-size:0.6rem;font-weight:600;margin:1px 1px 1px 0;border-radius:2px">${label}</span>`;
         })
         .join('');
       html += `<div style="margin-bottom:2px">${boxes}</div>`;
@@ -346,28 +389,39 @@ async function fetchAndInjectBorders() {
 
 // ─── TLE fetch ───────────────────────────────────────────────────────────────
 
-async function fetchAndInjectTles() {
+function setPropMode(mode, hudText, bannerText) {
   const statusEl = document.getElementById('tle-status');
-
-  // Show fallback state immediately — user sees this during the async fetch
+  const banner = document.getElementById('prop-mode');
+  const bannerText_ = document.getElementById('prop-mode-text');
   if (statusEl) {
-    statusEl.textContent = 'keplerian (loading…)';
-    statusEl.dataset.mode = 'fallback';
+    statusEl.textContent = hudText;
+    statusEl.dataset.mode = mode;
   }
+  if (banner) banner.dataset.mode = mode;
+  if (bannerText_) bannerText_.textContent = bannerText;
+}
+
+async function fetchAndInjectTles() {
+  setPropMode('loading', 'keplerian (loading…)', '⚠ keplerian fallback — loading TLE data…');
 
   try {
     const jsonText = await fetchTleWithCache();
     wasm.inject_tles(jsonText);
-    if (statusEl) {
-      statusEl.textContent = 'live tle';
-      statusEl.dataset.mode = 'live';
+    // Verify the WASM actually parsed the records (get_tle_count() returns 0 on
+    // JSON parse failure, which inject_tles() silently swallows).
+    const loaded = wasm.get_tle_count ? wasm.get_tle_count() : -1;
+    if (loaded === 0) {
+      throw new Error('TLE JSON parsed to 0 records — likely a bad cache entry');
     }
+    const countStr = loaded > 0 ? ` · ${loaded} sats` : '';
+    setPropMode('live', 'live tle', `● SGP4 · live TLE${countStr}`);
   } catch (e) {
     console.error('[gnss-hud] TLE fetch failed:', e);
-    if (statusEl) {
-      statusEl.textContent = 'keplerian (offline)';
-      statusEl.dataset.mode = 'fallback';
-    }
+    setPropMode(
+      'fallback',
+      'keplerian (offline)',
+      '⚠ keplerian fallback — TLE unavailable · approximate orbits',
+    );
   }
 }
 
@@ -383,16 +437,38 @@ async function fetchTleWithCache() {
   if (cached) {
     const fetchedAt = Number(cached.headers.get('x-fetched-at') ?? 0);
     if (Date.now() - fetchedAt < TLE_TTL_MS) {
-      return cached.text();
+      const text = await cached.text();
+      // Validate the cached response is a non-empty JSON array.
+      // If it's an HTML error page or empty, delete it and fetch fresh.
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return text;
+        }
+      } catch {
+        /* fall through */
+      }
+      console.warn('[gnss-hud] cached TLE response is invalid — deleting and re-fetching');
+      await cache.delete(TLE_CACHE_KEY);
     }
   }
 
   const text = await fetchTleDirect();
-  const headers = new Headers({
-    'content-type': 'application/json',
-    'x-fetched-at': String(Date.now()),
-  });
-  await cache.put(TLE_CACHE_KEY, new Response(text, { headers }));
+  // Only cache valid JSON arrays so a bad Celestrak response doesn't get stuck.
+  let validToCache = false;
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed) && parsed.length > 0) validToCache = true;
+  } catch {
+    /* leave validToCache = false */
+  }
+  if (validToCache) {
+    const headers = new Headers({
+      'content-type': 'application/json',
+      'x-fetched-at': String(Date.now()),
+    });
+    await cache.put(TLE_CACHE_KEY, new Response(text, { headers }));
+  }
   return text;
 }
 

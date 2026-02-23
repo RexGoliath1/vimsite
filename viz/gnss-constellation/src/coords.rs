@@ -83,10 +83,9 @@ pub fn az_el(obs_ecef: [f64; 3], sat_ecef: [f64; 3]) -> (f64, f64) {
 
     let el = up.atan2((east * east + north * north).sqrt()).to_degrees();
 
-    // az_east: angle measured from North toward East (standard math convention)
-    let az_east = east.atan2(north).to_degrees().rem_euclid(360.0);
-    // Convert to compass azimuth: clockwise from North
-    let az = (90.0 - az_east).rem_euclid(360.0);
+    // Compass azimuth: clockwise from North. east.atan2(north) already gives
+    // the compass bearing directly (0=N, 90=E, 180=S, 270=W).
+    let az = east.atan2(north).to_degrees().rem_euclid(360.0);
 
     (az, el)
 }

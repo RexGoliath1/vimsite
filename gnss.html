@@ -29,37 +29,71 @@
         margin: 0;
       }
 
-      /* ── canvas container — full-width, no breakout needed ─────────────── */
+      /* ── canvas container — panels overlay on full-width canvas ─────────── */
       .gnss-viz-container {
         position: relative;
         width: 100%;
+        height: calc(100vh - 80px);
+        overflow: hidden;
+      }
+
+      /* Wrapper lets axis-label overlay be positioned relative to canvas only */
+      .gnss-canvas-wrap {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
       }
 
       #gnss-canvas {
         display: block;
         width: 100%;
-        height: calc(100vh - 80px);
-        min-height: 500px;
+        height: 100%;
         background: #000;
         border: 1px solid var(--border);
       }
 
-      /* ── HUD panel ────────────────────────────────────────────────────── */
+      /* ── Left panel: sky plot + PRN badges — overlays canvas left side ───── */
+      #left-panel {
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        width: 280px;
+        height: 100%;
+        overflow-y: auto;
+        background: rgba(0, 8, 0, 0.93);
+        border-right: 1px solid var(--border);
+        padding: 8px 10px;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.85rem;
+        color: #7ab87a;
+        box-sizing: border-box;
+        line-height: 1.5;
+        scrollbar-width: thin;
+        scrollbar-color: #1a3a1a transparent;
+      }
+
+      /* ── Right panel: controls — overlays canvas right side ──────────────── */
       #hud-panel {
         position: absolute;
         top: 0;
         right: 0;
-        width: 300px;
         z-index: 10;
-        background: rgba(0, 0, 0, 0.88);
-        border-left: 1px solid #1a3a1a;
-        border-bottom: 1px solid #1a3a1a;
+        width: 300px;
+        height: 100%;
+        overflow-y: auto;
+        background: rgba(0, 8, 0, 0.93);
+        border-left: 1px solid var(--border);
         padding: 8px 12px;
         font-family: 'IBM Plex Mono', monospace;
         font-size: 0.85rem;
         color: #7ab87a;
         box-sizing: border-box;
         line-height: 1.5;
+        scrollbar-width: thin;
+        scrollbar-color: #1a3a1a transparent;
       }
 
       #hud-panel .hud-row {
@@ -93,19 +127,70 @@
         color: #5a9a5a;
       }
 
+      /* ── Propagation mode banner (above canvas) ───────────────────────── */
+      #prop-mode {
+        font-size: 0.75rem;
+        font-family: var(--font-mono);
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+        padding: 0.2rem 0.5rem;
+        border-left: 3px solid currentColor;
+        display: inline-block;
+      }
+
+      #prop-mode[data-mode='fallback'] {
+        color: #ff4444;
+      }
+
+      #prop-mode[data-mode='loading'] {
+        color: #ffab40;
+      }
+
+      #prop-mode[data-mode='live'] {
+        color: #39ff14;
+      }
+
+      /* Small utility buttons (↵ location apply, etc.) */
       #hud-panel button {
         background: transparent;
         border: 1px solid #3a7a3a;
         color: #7acc7a;
         font-family: inherit;
         font-size: 0.8rem;
-        padding: 2px 6px;
+        padding: 2px 8px;
         cursor: pointer;
         line-height: 1.4;
       }
 
       #hud-panel button:hover {
         border-color: #7acc7a;
+        color: #a0e0a0;
+        background: rgba(57, 255, 20, 0.05);
+      }
+
+      /* Large play/now time-control buttons — full row width, easy to click */
+      .hud-time-btns {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 5px;
+      }
+
+      .hud-time-btns button {
+        flex: 1;
+        padding: 9px 0;
+        font-size: 1.1rem;
+        letter-spacing: 0.04em;
+        border: 1px solid #3a7a3a;
+        background: transparent;
+        color: #7acc7a;
+        font-family: inherit;
+        cursor: pointer;
+        text-align: center;
+      }
+
+      .hud-time-btns button:hover {
+        border-color: #7acc7a;
+        background: rgba(57, 255, 20, 0.08);
         color: #a0e0a0;
       }
 
@@ -282,8 +367,8 @@
       /* ── Sky plot ─────────────────────────────────────────────────────── */
       #sky-plot-canvas {
         display: block;
-        margin-top: 6px;
         border: 1px solid #1a3a1a;
+        /* JS sets canvas.style.width/height to 260px; CSS just anchors display */
         width: 260px;
         height: 260px;
       }
@@ -324,24 +409,51 @@
         gnss constellation
       </h1>
 
+      <!-- Propagation mode banner — red = keplerian approx, green = live SGP4 -->
+      <div id="prop-mode" data-mode="fallback">
+        <span id="prop-mode-text">⚠ keplerian fallback — approximate orbits</span>
+      </div>
+
       <div class="gnss-viz-container">
-        <canvas id="gnss-canvas" aria-label="GNSS constellation orbit visualization"></canvas>
+        <!-- Left panel: sky plot + visible PRN badges ─────────────────────── -->
+        <div id="left-panel">
+          <!-- Sky plot canvas (260×260 logical px) -->
+          <canvas
+            id="sky-plot-canvas"
+            width="260"
+            height="260"
+            aria-label="Sky plot: satellite azimuth/elevation from observer"
+          ></canvas>
 
-        <!-- Axis label overlay — screen-space labels for ECEF/ECI axes -->
-        <div
-          id="axis-labels"
-          style="
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            overflow: hidden;
-          "
-        ></div>
+          <!-- PRN badges — always visible, no scroll needed -->
+          <div id="prn-list-panel">
+            <div class="hud-section-label">visible prns</div>
+            <div id="prn-list"></div>
+          </div>
+        </div>
+        <!-- /#left-panel -->
 
-        <!-- HUD overlay ───────────────────────────────────────────────── -->
+        <!-- Canvas wrapper keeps axis-label overlay scoped to the canvas area -->
+        <div class="gnss-canvas-wrap">
+          <canvas id="gnss-canvas" aria-label="GNSS constellation orbit visualization"></canvas>
+
+          <!-- Axis label overlay — screen-space labels for ECEF/ECI axes -->
+          <div
+            id="axis-labels"
+            style="
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              pointer-events: none;
+              overflow: hidden;
+            "
+          ></div>
+        </div>
+        <!-- /.gnss-canvas-wrap -->
+
+        <!-- HUD panel ─────────────────────────────────────────────────── -->
         <div id="hud-panel">
           <!-- Clock + TLE status -->
           <div class="hud-row">
@@ -349,8 +461,8 @@
             <span id="tle-status">keplerian</span>
           </div>
 
-          <!-- Time controls -->
-          <div class="hud-row">
+          <!-- Time controls — large buttons, full row width -->
+          <div class="hud-time-btns">
             <button id="btn-pause" title="pause / play">⏸</button>
             <button id="btn-reset-time" title="jump to now">now</button>
           </div>
@@ -388,6 +500,28 @@
               <input id="toggle-beidou" type="checkbox" checked title="BeiDou" />
               <span class="legend-dot" style="color: #ffaa00">●</span>
               <span class="legend-name">BeiDou</span>
+            </div>
+            <div class="legend-item" data-const-idx="4">
+              <input id="toggle-qzss" type="checkbox" checked title="QZSS" />
+              <span class="legend-dot" style="color: #a050ff">●</span>
+              <span class="legend-name">QZSS</span>
+            </div>
+            <div class="legend-item" data-const-idx="5">
+              <input id="toggle-navic" type="checkbox" checked title="NavIC" />
+              <span class="legend-dot" style="color: #ff50a0">●</span>
+              <span class="legend-name">NavIC</span>
+            </div>
+            <div class="legend-item" data-const-idx="6">
+              <input
+                id="toggle-other"
+                type="checkbox"
+                checked
+                title="SBAS augmentation and unclassified"
+              />
+              <span class="legend-dot" style="color: #808080">●</span>
+              <span class="legend-name" title="WAAS · EGNOS · GAGAN · MSAS and other augmentation"
+                >SBAS/aug</span
+              >
             </div>
           </div>
 
@@ -447,20 +581,6 @@
               title="observer longitude"
             />
             <button id="btn-set-location" title="apply location">↵</button>
-          </div>
-
-          <!-- Sky plot canvas (260×260 logical px) -->
-          <canvas
-            id="sky-plot-canvas"
-            width="260"
-            height="260"
-            aria-label="Sky plot: satellite azimuth/elevation from observer"
-          ></canvas>
-
-          <!-- PRN list panel -->
-          <div id="prn-list-panel">
-            <div class="hud-section-label">visible prns</div>
-            <div id="prn-list"></div>
           </div>
         </div>
         <!-- /#hud-panel -->
@@ -629,6 +749,26 @@
         requestAnimationFrame(updateAxisLabels);
       } catch (e) {
         console.error('[gnss] HUD init failed:', e);
+      }
+
+      // Keep the canvas GL buffer in sync with its CSS layout size.
+      // three-d initialises the buffer to window.innerWidth×innerHeight, but the
+      // canvas is a flex child narrower than the window. If the attributes don't
+      // match clientWidth/clientHeight the camera viewport and the pixel buffer
+      // disagree, shifting the Earth off-centre. ResizeObserver fixes this on
+      // every layout change (including first paint).
+      {
+        const _c = document.getElementById('gnss-canvas');
+        function _syncCanvasSize() {
+          const w = _c.clientWidth;
+          const h = _c.clientHeight;
+          if (w > 0 && h > 0 && (_c.width !== w || _c.height !== h)) {
+            _c.width = w;
+            _c.height = h;
+          }
+        }
+        _syncCanvasSize();
+        new ResizeObserver(_syncCanvasSize).observe(_c);
       }
     </script>
   </body>

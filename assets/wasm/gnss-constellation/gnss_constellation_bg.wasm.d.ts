@@ -4,6 +4,7 @@ export const memory: WebAssembly.Memory;
 export const get_camera_vp_matrix: () => [number, number];
 export const get_sim_epoch: () => number;
 export const get_sky_data: () => any;
+export const get_tle_count: () => number;
 export const inject_borders: (a: number, b: number) => void;
 export const inject_tles: (a: number, b: number) => void;
 export const set_elev_mask: (a: number) => void;

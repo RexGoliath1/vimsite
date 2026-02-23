@@ -9,7 +9,7 @@
  *   renderSkyPlot(ctx, sats, width, height) — pure render function
  */
 
-const CONSTELLATION_NAMES = ['GPS', 'GLONASS', 'Galileo', 'BeiDou'];
+import { satShortLabel } from '/assets/js/gnss-hud.js';
 
 const COLORS = {
   background: '#000000',
@@ -63,7 +63,9 @@ export function initSkyPlot(wasmModule) {
   ctx.scale(dpr, dpr);
 
   // Clear trail history when simulation time is reset
-  document.addEventListener('gnss:time-reset', () => { _trailHistory.clear(); });
+  document.addEventListener('gnss:time-reset', () => {
+    _trailHistory.clear();
+  });
 
   function loop(timestamp) {
     if (timestamp - _lastRenderTime >= RENDER_INTERVAL_MS) {
@@ -75,6 +77,18 @@ export function initSkyPlot(wasmModule) {
       } catch (err) {
         console.error('[gnss-skyplot] get_sky_data() failed:', err);
       }
+
+      // Dynamic trail cap: at high warp each frame covers many sim-seconds of
+      // arc. Cap points so total trail spans at most ~1800 sim-seconds, keeping
+      // the sky plot legible. Formula: points = 1800 / (interval_s * warp).
+      const _sliderEl = document.getElementById('time-warp-slider');
+      const _warpMultiplier = _sliderEl
+        ? Math.max(1, Math.round(Math.pow(10, (Number(_sliderEl.value) * 9) / 100)))
+        : 1;
+      const _dynamicMax = Math.max(
+        3,
+        Math.min(TRAIL_MAX_POINTS, Math.round(1800 / ((RENDER_INTERVAL_MS / 1000) * _warpMultiplier))),
+      );
 
       // Update trail history
       const now = performance.now();
@@ -100,7 +114,7 @@ export function initSkyPlot(wasmModule) {
         const ny = fraction * Math.cos(azRad); // normalized y (-1..1)
         const trail = _trailHistory.get(key) || [];
         trail.push({ nx, ny, ts: now, r: sat.r, g: sat.g, b: sat.b });
-        if (trail.length > TRAIL_MAX_POINTS) trail.shift();
+        if (trail.length > _dynamicMax) trail.shift();
         _trailHistory.set(key, trail);
       }
 
@@ -273,7 +287,8 @@ export function renderSkyPlot(
     }
   }
 
-  for (const sat of sats) {
+  for (let _si = 0; _si < sats.length; _si++) {
+    const sat = sats[_si];
     const { name, az_deg, el_deg, r, g, b } = sat;
 
     // Clamp elevation to valid range
@@ -319,7 +334,7 @@ export function renderSkyPlot(
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
-    const label = name || CONSTELLATION_NAMES[sat.constellation] || '?';
+    const label = satShortLabel(name, sat.constellation, _si);
     ctx.fillText(label, sx + glowRadius + 2, sy - 3);
 
     // C/N0 label below the name label

@@ -19,9 +19,9 @@ struct GnssState {
     sim_epoch: f64,
     paused: bool,
     visible_only: bool,
-    /// Indexed by tles::CONSTELLATION_* constants (0=GPS … 4=Other).
-    constellation_visible: [bool; 5],
-    /// -1 = none highlighted; 0-4 = one constellation highlighted.
+    /// Indexed by tles::CONSTELLATION_* constants (0=GPS … 6=Other).
+    constellation_visible: [bool; 7],
+    /// -1 = none highlighted; 0-6 = one constellation highlighted.
     highlighted: i32,
     /// Most-recent per-satellite ECEF positions (km) from TLE propagation.
     sat_ecef_km: Vec<(u8, [f64; 3])>,
@@ -54,7 +54,7 @@ impl Default for GnssState {
             sim_epoch: 0.0,
             paused: false,
             visible_only: false,
-            constellation_visible: [true; 5],
+            constellation_visible: [true; 7],
             highlighted: -1,
             sat_ecef_km: Vec::new(),
             time_warp: 120.0,
@@ -89,7 +89,7 @@ pub fn set_ground_location(lat: f64, lon: f64) {
 
 #[wasm_bindgen]
 pub fn toggle_constellation(idx: u32, on: bool) {
-    if idx < 5 {
+    if idx < 7 {
         STATE.with(|s| s.borrow_mut().constellation_visible[idx as usize] = on);
     }
 }
@@ -161,6 +161,14 @@ pub fn inject_borders(json: &str) {
     });
 }
 
+/// Returns the number of TLE satellite records currently loaded.
+/// Call after inject_tles() to verify the JSON was successfully parsed.
+/// Returns 0 if inject_tles() has not been called or if the JSON failed to parse.
+#[wasm_bindgen]
+pub fn get_tle_count() -> u32 {
+    STATE.with(|s| s.borrow().tle_store.records.len() as u32)
+}
+
 /// Returns the current camera view-projection matrix as a Vec of 16 f64 values (column-major).
 /// Each frame this is updated by the render loop. Used by JS for screen-space axis label projection.
 #[wasm_bindgen]
@@ -226,8 +234,14 @@ pub fn get_sky_data() -> JsValue {
                     *c_idx,
                     sat_idx,
                 );
+                // sat_ecef_km is populated in tle_store.records order,
+                // so sat_idx directly indexes the matching TLE record.
+                let name = st.tle_store.records
+                    .get(sat_idx)
+                    .map(|r| r.name.clone())
+                    .unwrap_or_default();
                 Some(ground::SkySat {
-                    name: String::new(),
+                    name,
                     constellation: *c_idx,
                     az_deg: az as f32,
                     el_deg: el as f32,
@@ -307,12 +321,14 @@ struct SatState {
 
 // ── Constellation colours (per-constellation material colour in TLE mode) ─────
 
-const CONST_COLORS: [[u8; 3]; 5] = [
-    [57, 255, 20],    // GPS      — neon green
-    [255, 68, 68],    // GLONASS  — red
-    [0, 255, 204],    // Galileo  — cyan
-    [255, 170, 0],    // BeiDou   — orange
-    [128, 128, 128],  // Other    — grey
+const CONST_COLORS: [[u8; 3]; 7] = [
+    [57, 255, 20],    // GPS      (0) — neon green
+    [255, 68, 68],    // GLONASS  (1) — red
+    [0, 255, 204],    // Galileo  (2) — cyan
+    [255, 170, 0],    // BeiDou   (3) — orange
+    [160, 80, 255],   // QZSS     (4) — violet
+    [255, 80, 160],   // NavIC    (5) — magenta
+    [128, 128, 128],  // Other    (6) — grey
 ];
 
 
@@ -437,7 +453,7 @@ pub fn start() {
     // Spherical camera state: azimuth (longitude), elevation (latitude), distance
     let mut cam_az: f64  = 0.3;   // radians, initial horizontal angle
     let mut cam_el: f64  = 0.42;  // radians, initial elevation (~24°)
-    let mut cam_dist: f64 = 14.0; // scene units — far enough to see all constellation rings at init
+    let mut cam_dist: f64 = 19.0; // scene units — pulled back to show outer QZSS/NavIC/BeiDou rings
 
     let mut camera = Camera::new_perspective(
         window.viewport(),
@@ -767,7 +783,7 @@ pub fn start() {
                 [u[0] * 6371.0, u[1] * 6371.0, u[2] * 6371.0]
             };
 
-            for ci in 0..5usize {
+            for ci in 0..CONST_COLORS.len() {
                 let base = CONST_COLORS[ci];
                 tle_sat_gms[ci].material.color = if !cv[ci] {
                     Srgba::new(0, 0, 0, 255)
