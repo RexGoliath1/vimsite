@@ -215,6 +215,26 @@ function wireTimeControls() {
     });
   }
 
+  // Pause simulation when the tab is hidden; restore previous state on return.
+  // This avoids burning GPU/CPU on a tab the user isn't looking at.
+  let pausedBeforeHide = false;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      pausedBeforeHide = paused;
+      if (!paused) {
+        paused = true;
+        wasm.set_paused(true);
+        if (btnPause) btnPause.textContent = '▶';
+      }
+    } else {
+      if (!pausedBeforeHide && paused) {
+        paused = false;
+        wasm.set_paused(false);
+        if (btnPause) btnPause.textContent = '⏸';
+      }
+    }
+  });
+
   if (btnReset) {
     btnReset.addEventListener('click', () => {
       const nowS = Date.now() / 1000;
