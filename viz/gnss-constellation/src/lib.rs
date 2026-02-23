@@ -284,11 +284,20 @@ fn period_s(alt_km: f32) -> f32 {
 }
 
 /// Keplerian position in normalised scene units (Earth radius = 1.0).
+/// Convention: Z = north pole, equatorial plane = XY.
+/// inc tilts the orbital plane from equatorial (rotation around X / line-of-nodes).
+/// raan rotates the ascending node around Z (correct J2 precession axis).
 fn kpos(r: f32, inc: f32, raan: f32, m: f32) -> Vec3 {
-    let (xo, zo) = (r * m.cos(), r * m.sin());
-    let y  = zo * inc.sin();
-    let ze = zo * inc.cos();
-    vec3(xo * raan.cos() - ze * raan.sin(), y, xo * raan.sin() + ze * raan.cos())
+    let xo = r * m.cos(); // radial in orbital plane
+    let yo = r * m.sin(); // along-track in orbital plane
+    // Apply inclination (rotation around X axis)
+    let (x1, y1, z1) = (xo, yo * inc.cos(), yo * inc.sin());
+    // Apply RAAN (rotation around Z axis — the north pole)
+    vec3(
+        x1 * raan.cos() - y1 * raan.sin(),
+        x1 * raan.sin() + y1 * raan.cos(),
+        z1,
+    )
 }
 
 struct SatState {
@@ -898,7 +907,7 @@ pub fn start() {
             let cpu = build_elev_cone(obs_n_cone, elev_mask);
             elev_cone_gm = Some(Gm::new(
                 Mesh::new(&context, &cpu),
-                ColorMaterial { color: Srgba::new(200, 200, 200, 18), ..Default::default() }, // light gray, very faint outline only
+                ColorMaterial { color: Srgba::new(200, 200, 200, 18), is_transparent: true, ..Default::default() }, // barely-visible ghost, alpha blending enabled
             ));
             STATE.with(|s| s.borrow_mut().cone_needs_rebuild = false);
         } else if !show_elev_cone {
