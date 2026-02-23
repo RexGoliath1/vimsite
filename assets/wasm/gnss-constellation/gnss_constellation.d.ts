@@ -1,6 +1,12 @@
 /* tslint:disable */
 /* eslint-disable */
 
+/**
+ * Returns the current camera view-projection matrix as a Vec of 16 f64 values (column-major).
+ * Each frame this is updated by the render loop. Used by JS for screen-space axis label projection.
+ */
+export function get_camera_vp_matrix(): Float64Array;
+
 export function get_sim_epoch(): number;
 
 /**
@@ -45,6 +51,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly get_camera_vp_matrix: () => [number, number];
     readonly get_sim_epoch: () => number;
     readonly get_sky_data: () => any;
     readonly inject_borders: (a: number, b: number) => void;
@@ -79,6 +86,7 @@ export interface InitOutput {
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_start: () => void;
 }
 

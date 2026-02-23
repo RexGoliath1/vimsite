@@ -27,7 +27,7 @@ const FONT_FAMILY = 'IBM Plex Mono, monospace';
 // {nx, ny, ts, r, g, b} entries. Wall-clock timestamps so trails fade at
 // real speed regardless of sim warp.
 const _trailHistory = new Map();
-const TRAIL_DURATION_MS = 45_000; // 45 seconds wall clock
+const TRAIL_DURATION_MS = 20_000; // 20 seconds wall clock
 const TRAIL_MAX_POINTS = 120; // cap to avoid unbounded growth
 
 let _lastRenderTime = 0;
@@ -61,6 +61,9 @@ export function initSkyPlot(wasmModule) {
 
   // Scale all drawing commands by dpr so logical coords work naturally
   ctx.scale(dpr, dpr);
+
+  // Clear trail history when simulation time is reset
+  document.addEventListener('gnss:time-reset', () => { _trailHistory.clear(); });
 
   function loop(timestamp) {
     if (timestamp - _lastRenderTime >= RENDER_INTERVAL_MS) {

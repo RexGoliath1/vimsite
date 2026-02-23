@@ -121,7 +121,7 @@ function wireOverlayToggles() {
 function startPrnListUpdater() {
   const container = document.getElementById('prn-list');
   if (!container) return;
-  const CONST_NAMES = ['GPS', 'GLO', 'GAL', 'BDS', 'OTH'];
+  const CONST_PREFIXES = ['G', 'R', 'E', 'C', '?'];
   const CONST_COLORS = ['#39ff14', '#ff4444', '#00ffcc', '#ffaa00', '#808080'];
   setInterval(() => {
     let sats;
@@ -142,11 +142,16 @@ function startPrnListUpdater() {
     for (const [c, group] of Object.entries(byConst)) {
       const ci = Number(c);
       const color = CONST_COLORS[ci] || '#808080';
-      const name = CONST_NAMES[ci] || 'OTH';
+      const prefix = CONST_PREFIXES[ci] || '?';
       // Sort by elevation descending
       group.sort((a, b) => b.el_deg - a.el_deg);
-      const labels = group.map((s, i) => s.name || `${name}${i + 1}`).join(' ');
-      html += `<div><span style="color:${color}">${name}</span> <span style="color:#5a9a5a">(${group.length})</span> ${labels}</div>`;
+      const boxes = group
+        .map((_, i) => {
+          const prn = String(i + 1).padStart(2, '0');
+          return `<span style="display:inline-block;background:${color};color:#000;width:18px;height:18px;line-height:18px;text-align:center;font-size:0.6rem;font-weight:600;margin:1px 1px 1px 0;border-radius:2px">${prefix}${prn}</span>`;
+        })
+        .join('');
+      html += `<div style="margin-bottom:2px">${boxes}</div>`;
     }
     container.innerHTML = html || '<span style="color:#3a6a3a">no sats</span>';
   }, 1000);
@@ -214,6 +219,7 @@ function wireTimeControls() {
     btnReset.addEventListener('click', () => {
       const nowS = Date.now() / 1000;
       wasm.set_sim_epoch(nowS);
+      document.dispatchEvent(new CustomEvent('gnss:time-reset'));
     });
   }
 

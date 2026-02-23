@@ -39,6 +39,11 @@ struct GnssState {
     borders_json: Option<String>,
     /// True when borders_json was updated but the mesh hasn't been rebuilt yet.
     borders_dirty: bool,
+    /// True when the elevation cone mesh needs to be rebuilt.
+    cone_needs_rebuild: bool,
+    /// Most-recent camera view-projection matrix (column-major, 16 f32s).
+    /// Updated every frame. Used by JS for screen-space axis label projection.
+    camera_vp: [f32; 16],
 }
 
 impl Default for GnssState {
@@ -61,6 +66,8 @@ impl Default for GnssState {
             show_elev_cone: false,
             borders_json: None,
             borders_dirty: false,
+            cone_needs_rebuild: true,
+            camera_vp: [0.0f32; 16],
         }
     }
 }
@@ -73,7 +80,11 @@ thread_local! {
 
 #[wasm_bindgen]
 pub fn set_ground_location(lat: f64, lon: f64) {
-    STATE.with(|s| s.borrow_mut().observer = Observer::new(lat, lon));
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.observer = Observer::new(lat, lon);
+        st.cone_needs_rebuild = true;
+    });
 }
 
 #[wasm_bindgen]
@@ -105,7 +116,11 @@ pub fn set_time_warp(v: f64) {
 
 #[wasm_bindgen]
 pub fn set_elev_mask(v: f64) {
-    STATE.with(|s| s.borrow_mut().elev_mask_deg = v.clamp(0.0, 89.0));
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.elev_mask_deg = v.clamp(0.0, 89.0);
+        st.cone_needs_rebuild = true;
+    });
 }
 
 #[wasm_bindgen]
@@ -130,7 +145,11 @@ pub fn set_show_borders(on: bool) {
 
 #[wasm_bindgen]
 pub fn set_show_elev_cone(on: bool) {
-    STATE.with(|s| s.borrow_mut().show_elev_cone = on);
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.show_elev_cone = on;
+        st.cone_needs_rebuild = true;
+    });
 }
 
 #[wasm_bindgen]
@@ -140,6 +159,13 @@ pub fn inject_borders(json: &str) {
         st.borders_json = Some(json.to_string());
         st.borders_dirty = true;
     });
+}
+
+/// Returns the current camera view-projection matrix as a Vec of 16 f64 values (column-major).
+/// Each frame this is updated by the render loop. Used by JS for screen-space axis label projection.
+#[wasm_bindgen]
+pub fn get_camera_vp_matrix() -> Vec<f64> {
+    STATE.with(|s| s.borrow().camera_vp.iter().map(|&x| x as f64).collect())
 }
 
 #[wasm_bindgen]
@@ -272,6 +298,154 @@ const CONST_COLORS: [[u8; 3]; 5] = [
     [128, 128, 128],  // Other    — grey
 ];
 
+/// Custom satellite icon: elongated box body + two thin solar panel wings.
+/// Dimensions in mesh-local space:
+///   Bus body:   x∈[-0.5,0.5], y∈[-0.25,0.25], z∈[-0.25,0.25]
+///   Left panel: x∈[-0.5,0.5], y∈[-0.04,0.04], z∈[0.25,1.2]
+///   Right panel: x∈[-0.5,0.5], y∈[-0.04,0.04], z∈[-1.2,-0.25]
+fn satellite_cpu_mesh() -> CpuMesh {
+    let positions = Positions::F32(vec![
+        // Body (0-7)
+        vec3(-0.5_f32, -0.25, -0.25), // 0
+        vec3( 0.5,     -0.25, -0.25), // 1
+        vec3( 0.5,      0.25, -0.25), // 2
+        vec3(-0.5,      0.25, -0.25), // 3
+        vec3(-0.5,     -0.25,  0.25), // 4
+        vec3( 0.5,     -0.25,  0.25), // 5
+        vec3( 0.5,      0.25,  0.25), // 6
+        vec3(-0.5,      0.25,  0.25), // 7
+        // Left panel (8-15)
+        vec3(-0.5, -0.04,  0.25), // 8
+        vec3( 0.5, -0.04,  0.25), // 9
+        vec3( 0.5,  0.04,  0.25), // 10
+        vec3(-0.5,  0.04,  0.25), // 11
+        vec3(-0.5, -0.04,  1.20), // 12
+        vec3( 0.5, -0.04,  1.20), // 13
+        vec3( 0.5,  0.04,  1.20), // 14
+        vec3(-0.5,  0.04,  1.20), // 15
+        // Right panel (16-23)
+        vec3(-0.5, -0.04, -0.25), // 16
+        vec3( 0.5, -0.04, -0.25), // 17
+        vec3( 0.5,  0.04, -0.25), // 18
+        vec3(-0.5,  0.04, -0.25), // 19
+        vec3(-0.5, -0.04, -1.20), // 20
+        vec3( 0.5, -0.04, -1.20), // 21
+        vec3( 0.5,  0.04, -1.20), // 22
+        vec3(-0.5,  0.04, -1.20), // 23
+    ]);
+    let indices = Indices::U32(vec![
+        // Body: 12 triangles (verified CCW winding, outward normals)
+        0,2,1,  0,3,2,   // front face (-z)
+        4,5,6,  4,6,7,   // back face  (+z)
+        0,7,3,  0,4,7,   // left face  (-x)
+        1,2,6,  1,6,5,   // right face (+x)
+        0,1,5,  0,5,4,   // bottom face (-y)
+        3,6,2,  3,7,6,   // top face   (+y)
+        // Left panel: 6 triangles
+        8,9,13,    8,13,12,   // bottom -y
+        11,15,14,  11,14,10,  // top +y
+        12,13,14,  12,14,15,  // far end +z
+        // Right panel: 6 triangles
+        17,16,20,  17,20,21,  // bottom -y
+        19,18,22,  19,22,23,  // top +y
+        21,20,23,  21,23,22,  // far end -z
+    ]);
+    CpuMesh { positions, indices, ..Default::default() }
+}
+
+/// Builds a small cone tower pointing outward from the Earth surface at obs_n.
+/// Apex at 1.10 × Earth radius, base ring at 1.00 (surface), radius 0.025.
+fn build_observer_tower(obs_n: Vec3) -> CpuMesh {
+    let n = 8i32;
+    let tip_r = 1.10f32;
+    let base_r = 0.025f32;
+
+    let up_ref = if obs_n.z.abs() < 0.9 { vec3(0.0f32, 0.0, 1.0) } else { vec3(1.0f32, 0.0, 0.0) };
+    let e1 = obs_n.cross(up_ref).normalize();
+    let e2 = obs_n.cross(e1).normalize();
+
+    let tip = obs_n * tip_r;
+    let base_center = obs_n;
+
+    let mut verts: Vec<Vec3> = vec![tip]; // index 0 = tip
+    for i in 0..n {
+        let phi = i as f32 * 2.0 * PI / n as f32;
+        verts.push(obs_n + base_r * (phi.cos() * e1 + phi.sin() * e2));
+    }
+    let center_idx = verts.len() as u32;
+    verts.push(base_center);
+
+    let mut idxs: Vec<u32> = Vec::new();
+    // Side triangles: tip → next base → current base (CCW when viewed from outside)
+    for i in 1..=(n as u32) {
+        let next = if i == n as u32 { 1 } else { i + 1 };
+        idxs.push(0);     // tip
+        idxs.push(next);
+        idxs.push(i);
+    }
+    // Base cap: base_center → current → next (CCW from below, i.e., inward normal)
+    for i in 1..=(n as u32) {
+        let next = if i == n as u32 { 1 } else { i + 1 };
+        idxs.push(center_idx);
+        idxs.push(i);
+        idxs.push(next);
+    }
+
+    CpuMesh {
+        positions: Positions::F32(verts),
+        indices: Indices::U32(idxs),
+        ..Default::default()
+    }
+}
+
+/// Builds a solid cone from the observer surface point to GPS altitude (4.17 scene units).
+/// The cone boundary is at elevation angle `elev_deg` above the local horizon.
+/// Returns a filled triangle-fan CpuMesh.
+fn build_elev_cone(obs_n: Vec3, elev_deg: f64) -> CpuMesh {
+    const N: i32 = 64;
+    const GPS_ALT_SCENE: f32 = 4.17; // (6371 + 20200) / 6371
+
+    let el_rad = (elev_deg as f32).to_radians();
+    let sin_el = el_rad.sin();
+    let cos_el = el_rad.cos();
+
+    let up_ref = if obs_n.z.abs() < 0.9 { vec3(0.0f32, 0.0, 1.0) } else { vec3(1.0f32, 0.0, 0.0) };
+    let e1 = obs_n.cross(up_ref).normalize();
+    let e2 = obs_n.cross(e1).normalize();
+
+    // Apex at Earth surface
+    let mut verts: Vec<Vec3> = vec![obs_n];
+
+    // Rim: ray from apex in direction `dir`, intersect sphere of radius GPS_ALT_SCENE
+    // Ray: P(t) = obs_n + t*dir, |P|² = GPS_ALT_SCENE²
+    // t² + 2t*(obs_n·dir) + 1 - GPS_ALT_SCENE² = 0
+    // obs_n·dir = sin_el (since dir = sin_el*obs_n + cos_el*(cos_phi*e1+sin_phi*e2))
+    // t = -sin_el + sqrt(sin_el² - 1 + GPS_ALT_SCENE²)
+    let discriminant = sin_el * sin_el - 1.0 + GPS_ALT_SCENE * GPS_ALT_SCENE;
+    let t_rim = if discriminant >= 0.0 { -sin_el + discriminant.sqrt() } else { GPS_ALT_SCENE };
+
+    for i in 0..N {
+        let phi = i as f32 * 2.0 * PI / N as f32;
+        let dir = (sin_el * obs_n + cos_el * (phi.cos() * e1 + phi.sin() * e2)).normalize();
+        verts.push(obs_n + t_rim * dir);
+    }
+
+    // Triangle fan: apex(0) → rim[i] → rim[next]
+    let mut idxs: Vec<u32> = Vec::new();
+    for i in 1..=(N as u32) {
+        let next = if i == N as u32 { 1 } else { i + 1 };
+        idxs.push(0);
+        idxs.push(i);
+        idxs.push(next);
+    }
+
+    CpuMesh {
+        positions: Positions::F32(verts),
+        indices: Indices::U32(idxs),
+        ..Default::default()
+    }
+}
+
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 #[wasm_bindgen(start)]
@@ -346,17 +520,21 @@ pub fn start() {
         ColorMaterial { color: Srgba::new(100, 100, 100, 255), ..Default::default() },
     );
 
-    // Ground observer marker — bright yellow sphere on Earth surface
+    // Ground observer marker — cone tower pointing outward from Earth surface
+    // Rebuilt each frame when observer changes. Start with a placeholder at (0,1,0).
+    let obs_init = vec3(0.0f32, 1.0, 0.0);
+    let tower_mesh = build_observer_tower(obs_init);
     let mut ground_marker = Gm::new(
-        Mesh::new(&context, &CpuMesh::sphere(8)),
+        Mesh::new(&context, &tower_mesh),
         ColorMaterial { color: Srgba::new(255, 240, 60, 255), ..Default::default() },
     );
+    let mut prev_obs_n = obs_init;
 
     // ── Keplerian Phase-1 orbit rings + satellite meshes ──────────────────────
     let ring_dot  = CpuMesh::sphere(3);
-    let sat_dot   = CpuMesh::sphere(4);
+    let sat_dot   = satellite_cpu_mesh();
     let ring_scale = Mat4::from_scale(0.009);
-    let sat_scale  = Mat4::from_scale(0.04);
+    let sat_scale  = Mat4::from_scale(0.03);
 
     let mut orbit_gms: Vec<Gm<InstancedMesh, ColorMaterial>> = Vec::new();
     let mut sat_gms:   Vec<Gm<InstancedMesh, ColorMaterial>> = Vec::new();
@@ -379,7 +557,7 @@ pub fn start() {
             })
             .collect();
 
-        let ring_col = Srgba::new(def.rgb[0] / 7, def.rgb[1] / 7, def.rgb[2] / 7, 255);
+        let ring_col = Srgba::new(def.rgb[0] / 3, def.rgb[1] / 3, def.rgb[2] / 3, 255);
         orbit_gms.push(Gm::new(
             InstancedMesh::new(&context, &Instances { transformations: ring_xforms, ..Default::default() }, &ring_dot),
             ColorMaterial { color: ring_col, ..Default::default() },
@@ -411,9 +589,9 @@ pub fn start() {
 
     // ── ECEF reference frame axes — static dot lines ─────────────────────────
     let axis_dot_mesh = CpuMesh::sphere(2);
-    let axis_dot_scale = Mat4::from_scale(0.012f32);
-    let n_axis_dots: i32 = 18;
-    let axis_max_r = 1.5f32;
+    let axis_dot_scale = Mat4::from_scale(0.010f32);
+    let n_axis_dots: i32 = 30;
+    let axis_max_r = 2.5f32;
 
     let ecef_gm_x = {
         let dir = vec3(1.0f32, 0.0, 0.0);
@@ -479,12 +657,8 @@ pub fn start() {
         )
     };
 
-    // ── Elevation cone ring — updated each frame ──────────────────────────────
-    let cone_dot_mesh = CpuMesh::sphere(2);
-    let mut elev_cone_gm = Gm::new(
-        InstancedMesh::new(&context, &Instances { transformations: vec![Mat4::from_scale(0.0)], ..Default::default() }, &cone_dot_mesh),
-        ColorMaterial { color: Srgba::new(80, 255, 120, 180), ..Default::default() }, // transparent green
-    );
+    // ── Elevation cone — solid filled cone mesh, rebuilt when dirty ───────────
+    let mut elev_cone_gm: Option<Gm<Mesh, ColorMaterial>> = None;
 
     // ── Country borders — built lazily when inject_borders() is called ────────
     let mut borders_gm: Option<Gm<Mesh, ColorMaterial>> = None;
@@ -504,6 +678,18 @@ pub fn start() {
         control.handle_events(&mut camera, &mut frame_input.events);
         camera.set_viewport(frame_input.viewport);
 
+        // Store camera VP matrix for JS axis label projection
+        {
+            let vp = camera.projection() * camera.view();
+            let arr: [f32; 16] = [
+                vp.x.x, vp.x.y, vp.x.z, vp.x.w,
+                vp.y.x, vp.y.y, vp.y.z, vp.y.w,
+                vp.z.x, vp.z.y, vp.z.z, vp.z.w,
+                vp.w.x, vp.w.y, vp.w.z, vp.w.w,
+            ];
+            STATE.with(|s| s.borrow_mut().camera_vp = arr);
+        }
+
         // ── 3. Read display state snapshot ───────────────────────────────
         let (has_tles, cv, highlighted, visible_only, elev_mask, show_inc_rings, show_ecef_axes,
              show_eci_axes, show_borders, show_elev_cone, borders_dirty) = STATE.with(|s| {
@@ -522,6 +708,7 @@ pub fn start() {
                 st.borders_dirty,
             )
         });
+        let cone_dirty = STATE.with(|s| s.borrow().cone_needs_rebuild);
 
         // ── 4. Update Keplerian orbit ring colours (highlight / dim) ──────
         for (i, og) in orbit_gms.iter_mut().enumerate() {
@@ -529,9 +716,9 @@ pub fn start() {
             og.material.color = if !cv[i] {
                 Srgba::new(0, 0, 0, 255)
             } else if highlighted != -1 && highlighted != i as i32 {
-                Srgba::new(base[0] / 20, base[1] / 20, base[2] / 20, 255)
+                Srgba::new(base[0] / 10, base[1] / 10, base[2] / 10, 255)
             } else {
-                Srgba::new(base[0] / 7, base[1] / 7, base[2] / 7, 255)
+                Srgba::new(base[0] / 3, base[1] / 3, base[2] / 3, 255)
             };
         }
 
@@ -653,12 +840,17 @@ pub fn start() {
             }
         }
 
-        // ── 6. Ground marker ──────────────────────────────────────────────
+        // ── 6. Ground marker (observer tower) ─────────────────────────────
         let obs_scene = STATE.with(|s| s.borrow().observer.scene_pos());
-        ground_marker.geometry.set_transformation(
-            Mat4::from_translation(vec3(obs_scene[0], obs_scene[1], obs_scene[2]))
-                * Mat4::from_scale(0.06),
-        );
+        let obs_n_cur = vec3(obs_scene[0], obs_scene[1], obs_scene[2]).normalize();
+        if (obs_n_cur - prev_obs_n).magnitude() > 1e-5 {
+            let tower_mesh_new = build_observer_tower(obs_n_cur);
+            ground_marker = Gm::new(
+                Mesh::new(&context, &tower_mesh_new),
+                ColorMaterial { color: Srgba::new(255, 240, 60, 255), ..Default::default() },
+            );
+            prev_obs_n = obs_n_cur;
+        }
 
         // ── 6b. ECI axes — rotate with GMST ──────────────────────────────────────
         let gmst = coords::gmst_rad(sim_epoch) as f32;
@@ -668,8 +860,8 @@ pub fn start() {
         let eci_y_dir = vec3(-gmst.sin(), gmst.cos(), 0.0f32);
         if show_eci_axes {
             let eci_xf = |dir: Vec3| -> Vec<Mat4> {
-                (1..=18i32).map(|i| {
-                    Mat4::from_translation(dir * (i as f32 * 1.5 / 18.0)) * Mat4::from_scale(0.012)
+                (1..=30i32).map(|i| {
+                    Mat4::from_translation(dir * (i as f32 * 2.5 / 30.0)) * Mat4::from_scale(0.010)
                 }).collect()
             };
             eci_gm_x.geometry.set_instances(&Instances { transformations: eci_xf(eci_x_dir), ..Default::default() });
@@ -680,31 +872,18 @@ pub fn start() {
             eci_gm_y.geometry.set_instances(&Instances { transformations: hidden, ..Default::default() });
         }
 
-        // ── 6c. Elevation cone ring ───────────────────────────────────────────────
-        if show_elev_cone {
+        // ── 6c. Elevation cone — solid filled surface ─────────────────────────────
+        if show_elev_cone && (cone_dirty || elev_cone_gm.is_none()) {
             let obs_pos = STATE.with(|s| s.borrow().observer.scene_pos());
-            let obs_n = vec3(obs_pos[0], obs_pos[1], obs_pos[2]).normalize();
-            // Build orthonormal basis for the observer's local frame
-            let up_ref = if obs_n.z.abs() < 0.9 { vec3(0.0f32, 0.0, 1.0) } else { vec3(1.0f32, 0.0, 0.0) };
-            let e1 = obs_n.cross(up_ref).normalize();
-            let e2 = obs_n.cross(e1).normalize();
-            let el_rad = elev_mask as f32 * std::f32::consts::PI / 180.0;
-            let ring_r = 1.6f32; // place ring at ~0.6 Earth radii above surface, near sat altitude
-            let n_cone_pts = 64i32;
-            let cone_xforms: Vec<Mat4> = (0..n_cone_pts).map(|i| {
-                let phi = i as f32 * 2.0 * std::f32::consts::PI / n_cone_pts as f32;
-                // Direction from observer toward the elevation mask boundary:
-                // el_rad above local horizon = 90°-el_rad from zenith
-                let dir = (el_rad.sin() * obs_n + el_rad.cos() * (phi.cos() * e1 + phi.sin() * e2)).normalize();
-                let pt = dir * ring_r;
-                Mat4::from_translation(pt) * Mat4::from_scale(0.009)
-            }).collect();
-            elev_cone_gm.geometry.set_instances(&Instances { transformations: cone_xforms, ..Default::default() });
-        } else {
-            elev_cone_gm.geometry.set_instances(&Instances {
-                transformations: vec![Mat4::from_scale(0.0)],
-                ..Default::default()
-            });
+            let obs_n_cone = vec3(obs_pos[0], obs_pos[1], obs_pos[2]).normalize();
+            let cpu = build_elev_cone(obs_n_cone, elev_mask);
+            elev_cone_gm = Some(Gm::new(
+                Mesh::new(&context, &cpu),
+                ColorMaterial { color: Srgba::new(80, 255, 120, 90), ..Default::default() },
+            ));
+            STATE.with(|s| s.borrow_mut().cone_needs_rebuild = false);
+        } else if !show_elev_cone {
+            elev_cone_gm = None;
         }
 
         // ── 6d. Country borders — lazy rebuild when inject_borders() called ───────
@@ -731,7 +910,9 @@ pub fn start() {
         objs.push(&eci_gm_x);
         objs.push(&eci_gm_y);
         objs.push(&eci_gm_z);
-        if show_elev_cone { objs.push(&elev_cone_gm); }
+        if show_elev_cone {
+            if let Some(ref cone) = elev_cone_gm { objs.push(cone); }
+        }
         if let Some(ref brd) = borders_gm {
             if show_borders { objs.push(brd); }
         }
