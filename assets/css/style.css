@@ -138,6 +138,21 @@ header {
   color: var(--link-hover);
 }
 
+.tree-listing a.tree-file {
+  color: var(--accent);
+  font-weight: 400;
+}
+
+.tree-listing a.tree-file:hover {
+  color: var(--link-hover);
+}
+
+.tree-listing a.tree-cursor {
+  background: #1a331a;
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* === LS PANEL (post listing) === */
 
 .ls-table {
