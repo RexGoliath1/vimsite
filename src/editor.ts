@@ -157,11 +157,25 @@ type PostType = 'spoken' | 'written';
       document.body.appendChild(ov);
       const inp = document.getElementById('ed-token') as HTMLInputElement;
       inp.focus();
+      const statusEl = box.querySelector('.editor-status') as HTMLElement;
       inp.addEventListener('keydown', (e: KeyboardEvent) => {
         if (e.key === 'Enter' && inp.value.trim()) {
-          setToken(inp.value.trim());
-          document.body.removeChild(ov);
-          resolve(inp.value.trim());
+          const candidate = inp.value.trim();
+          inp.disabled = true;
+          statusEl.textContent = 'checking token...';
+          gh<GitHubRef>('GET', 'git/ref/heads/' + BRANCH, candidate)
+            .then(() => {
+              setToken(candidate);
+              document.body.removeChild(ov);
+              resolve(candidate);
+            })
+            .catch(() => {
+              inp.disabled = false;
+              inp.value = '';
+              inp.placeholder = 'try again...';
+              statusEl.textContent = 'invalid token · esc: cancel';
+              inp.focus();
+            });
         } else if (e.key === 'Escape') {
           document.body.removeChild(ov);
           reject(new Error('cancelled'));
@@ -624,7 +638,7 @@ type PostType = 'spoken' | 'written';
     const ov = el('div', 'editor-overlay');
     const box = el('div', 'editor-box');
     box.style.maxWidth = '450px';
-    let stage = 0;
+    let stage = 1; // d that triggered this dialog counts as first confirmation
     const msgs = [
       'press d to confirm \u00b7 any other key to cancel',
       'press d again \u00b7 any other key to cancel',

@@ -54,11 +54,23 @@
         document.body.appendChild(ov);
         const inp = document.getElementById("ed-token");
         inp.focus();
+        const statusEl = box.querySelector(".editor-status");
         inp.addEventListener("keydown", (e) => {
           if (e.key === "Enter" && inp.value.trim()) {
-            setToken(inp.value.trim());
-            document.body.removeChild(ov);
-            resolve(inp.value.trim());
+            const candidate = inp.value.trim();
+            inp.disabled = true;
+            statusEl.textContent = "checking token...";
+            gh("GET", "git/ref/heads/" + BRANCH, candidate).then(() => {
+              setToken(candidate);
+              document.body.removeChild(ov);
+              resolve(candidate);
+            }).catch(() => {
+              inp.disabled = false;
+              inp.value = "";
+              inp.placeholder = "try again...";
+              statusEl.textContent = "invalid token \xB7 esc: cancel";
+              inp.focus();
+            });
           } else if (e.key === "Escape") {
             document.body.removeChild(ov);
             reject(new Error("cancelled"));
@@ -356,7 +368,7 @@
       const ov = el("div", "editor-overlay");
       const box = el("div", "editor-box");
       box.style.maxWidth = "450px";
-      let stage = 0;
+      let stage = 1;
       const msgs = [
         "press d to confirm \xB7 any other key to cancel",
         "press d again \xB7 any other key to cancel",
