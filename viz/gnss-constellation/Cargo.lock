@@ -488,11 +488,17 @@ dependencies = [
 name = "gnss-constellation"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "gloo-net",
  "gloo-timers",
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
  "sgp4",
  "three-d",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 
