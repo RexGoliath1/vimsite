@@ -5,6 +5,8 @@
   "compatibility_date": "2026-02-21",
   "preview_urls": true,
   "workers_dev": true,
+  // Worker entry point — handles /api/* routes, delegates everything else to static assets
+  "main": "src/worker.js",
   "assets": {
     "directory": "./"
   }

@@ -24,6 +24,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['assets/js/**', 'node_modules/**'],
+    ignores: ['assets/js/**', 'node_modules/**', 'src/worker.js'],
   },
 );

@@ -13,7 +13,7 @@ let scrubberIntervalId = null;
 
 const CHICAGO_LAT = 41.85;
 const CHICAGO_LON = -87.65;
-const TLE_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=gnss&FORMAT=json';
+const TLE_URL = '/api/tle/gnss';
 const TLE_CACHE_KEY = TLE_URL;
 const TLE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
