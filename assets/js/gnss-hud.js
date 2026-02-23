@@ -117,20 +117,32 @@ function wireOverlayToggles() {
 }
 
 // ─── Satellite short-label helper ─────────────────────────────────────────────
-// Derives a stable 2–4 char label from a Celestrak TLE object_name.
-// GPS:     "(PRN 18)" in name → "G18";  else trailing number → "G12"
-// Galileo: "GSAT0214"         → "E14"
-// BeiDou:  "BEIDOU-3 M14"     → "C14"
-// GLONASS: "COSMOS 2557"      → "R57";  "GLONASS-M 734" → "R34"
-// Falls back to positional index (1-based) if no number found in name.
+// Derives a stable 2-char label from a Celestrak TLE OBJECT_NAME by checking
+// the parenthetical designator first (most authoritative), then the base name.
+//
+// Actual Celestrak formats (verified against live data):
+//   GPS:     "GPS BIIF-1  (PRN 25)"     → G25   (PRN is the signal PRN)
+//   BeiDou:  "BEIDOU-3 M1 (C19)"        → C19   (CXX is the BDS PRN slot)
+//   Galileo: "GSAT0201 (GALILEO 5)"     → E05   (FOC deployment sequence)
+//            "GSAT0102 (GALILEO-FM2)"   → E02   (IOV flight model number)
+//            "GSAT0101 (GALILEO-PFM)"   → no digit → fallback E01
+//   GLONASS: "COSMOS 2433 (720)"        → R33   (last 2 of COSMOS number)
+// Falls back to prefix + (fallbackN+1) when no number can be extracted.
 export function satShortLabel(name, constellation, fallbackN) {
   const PREFIXES = ['G', 'R', 'E', 'C', '?'];
   const prefix = PREFIXES[constellation] ?? '?';
   if (name) {
-    // GPS TLEs often include "(PRN XX)" — use that directly.
+    // GPS: "(PRN 25)" → G25
     const prnMatch = name.match(/\(PRN\s*(\d+)\)/i);
     if (prnMatch) return 'G' + prnMatch[1].padStart(2, '0');
-    // Strip parentheticals, then extract the last number in the base name.
+    // BeiDou: "(C19)" → C19  (actual BDS PRN slot — ALL BeiDou sats have this)
+    const bdsMatch = name.match(/\(C(\d{1,3})\)/);
+    if (bdsMatch) return 'C' + bdsMatch[1].padStart(2, '0');
+    // Galileo FOC: "(GALILEO 5)" → E05, "(GALILEO-FM2)" → E02
+    const galMatch = name.match(/\(GALILEO[- ]*(?:FM)?(\d+)\)/i);
+    if (galMatch) return 'E' + galMatch[1].padStart(2, '0');
+    // Fallback: strip parens, take last number from base name
+    // GLONASS "COSMOS 2433" → last 2 of "2433" = "R33"
     const base = name.replace(/\(.*?\)/g, '').trim();
     const numMatch = base.match(/(\d+)\s*$/);
     if (numMatch) return prefix + numMatch[1].slice(-2).padStart(2, '0');
