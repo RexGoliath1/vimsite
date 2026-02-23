@@ -453,7 +453,7 @@ pub fn start() {
     // Spherical camera state: azimuth (longitude), elevation (latitude), distance
     let mut cam_az: f64  = 0.3;   // radians, initial horizontal angle
     let mut cam_el: f64  = 0.42;  // radians, initial elevation (~24°)
-    let mut cam_dist: f64 = 14.0; // scene units — far enough to see all constellation rings at init
+    let mut cam_dist: f64 = 19.0; // scene units — pulled back to show outer QZSS/NavIC/BeiDou rings
 
     let mut camera = Camera::new_perspective(
         window.viewport(),
