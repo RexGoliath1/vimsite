@@ -417,16 +417,28 @@ pub fn start() {
 
     let context = window.gl();
 
+    // Spherical camera state: azimuth (longitude), elevation (latitude), distance
+    let mut cam_az: f64  = 0.3;   // radians, initial horizontal angle
+    let mut cam_el: f64  = 0.42;  // radians, initial elevation (~24°)
+    let mut cam_dist: f64 = 9.0;  // scene units from Earth center
+
     let mut camera = Camera::new_perspective(
         window.viewport(),
-        vec3(0.0, 3.5, 9.0),
-        vec3(0.0, 0.0, 0.0),
-        vec3(0.0, 1.0, 0.0),
+        vec3(
+            (cam_el.cos() * cam_az.cos()) as f32,
+            (cam_el.cos() * cam_az.sin()) as f32,
+            cam_el.sin() as f32,
+        ) * cam_dist as f32,
+        vec3(0.0f32, 0.0, 0.0),
+        vec3(
+            (-cam_el.sin() * cam_az.cos()) as f32,
+            (-cam_el.sin() * cam_az.sin()) as f32,
+            cam_el.cos() as f32,
+        ),
         degrees(42.0),
         0.1,
         200.0,
     );
-    let mut control = OrbitControl::new(camera.target(), 2.0, 25.0);
 
     // Earth sphere (radius = 1.0 scene units)
     let earth = Gm::new(
@@ -620,8 +632,39 @@ pub fn start() {
         }
         let sim_epoch = STATE.with(|s| s.borrow().sim_epoch);
 
-        // ── 2. Camera events ──────────────────────────────────────────────
-        control.handle_events(&mut camera, &mut frame_input.events);
+        // ── 2. Spherical camera — mouse/scroll → azimuth/elevation/distance ──
+        for event in frame_input.events.iter_mut() {
+            match event {
+                Event::MouseMotion { delta, button, handled, .. } => {
+                    if *handled { continue; }
+                    if button.is_some() {
+                        // Any button drag: horizontal → azimuth, vertical → elevation
+                        cam_az -= delta.0 as f64 * 0.004;
+                        cam_el  = (cam_el + delta.1 as f64 * 0.004).clamp(-1.55, 1.55);
+                        *handled = true;
+                    }
+                }
+                Event::MouseWheel { delta, handled, .. } => {
+                    if *handled { continue; }
+                    cam_dist = (cam_dist * (1.0 - delta.1 as f64 * 0.08)).clamp(1.5, 30.0);
+                    *handled = true;
+                }
+                _ => {}
+            }
+        }
+        // Recompute camera position/orientation from spherical state
+        let cam_pos = vec3(
+            (cam_el.cos() * cam_az.cos()) as f32,
+            (cam_el.cos() * cam_az.sin()) as f32,
+            cam_el.sin() as f32,
+        ) * cam_dist as f32;
+        // Spherical "north": dPos/d(el), always perpendicular to view direction
+        let cam_up = vec3(
+            (-cam_el.sin() * cam_az.cos()) as f32,
+            (-cam_el.sin() * cam_az.sin()) as f32,
+            cam_el.cos() as f32,
+        );
+        camera.set_view(cam_pos, vec3(0.0f32, 0.0, 0.0), cam_up);
         camera.set_viewport(frame_input.viewport);
 
         // Store camera VP matrix for JS axis label projection
