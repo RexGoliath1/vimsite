@@ -378,28 +378,32 @@ async function fetchAndInjectBorders() {
 
 // ─── TLE fetch ───────────────────────────────────────────────────────────────
 
-async function fetchAndInjectTles() {
+function setPropMode(mode, hudText, bannerText) {
   const statusEl = document.getElementById('tle-status');
-
-  // Show fallback state immediately — user sees this during the async fetch
+  const banner = document.getElementById('prop-mode');
+  const bannerText_ = document.getElementById('prop-mode-text');
   if (statusEl) {
-    statusEl.textContent = 'keplerian (loading…)';
-    statusEl.dataset.mode = 'fallback';
+    statusEl.textContent = hudText;
+    statusEl.dataset.mode = mode;
   }
+  if (banner) banner.dataset.mode = mode;
+  if (bannerText_) bannerText_.textContent = bannerText;
+}
+
+async function fetchAndInjectTles() {
+  setPropMode('loading', 'keplerian (loading…)', '⚠ keplerian fallback — loading TLE data…');
 
   try {
     const jsonText = await fetchTleWithCache();
     wasm.inject_tles(jsonText);
-    if (statusEl) {
-      statusEl.textContent = 'live tle';
-      statusEl.dataset.mode = 'live';
-    }
+    setPropMode('live', 'live tle', '● SGP4 · live TLE');
   } catch (e) {
     console.error('[gnss-hud] TLE fetch failed:', e);
-    if (statusEl) {
-      statusEl.textContent = 'keplerian (offline)';
-      statusEl.dataset.mode = 'fallback';
-    }
+    setPropMode(
+      'fallback',
+      'keplerian (offline)',
+      '⚠ keplerian fallback — TLE unavailable · approximate orbits',
+    );
   }
 }
 

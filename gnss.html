@@ -93,6 +93,29 @@
         color: #5a9a5a;
       }
 
+      /* ── Propagation mode banner (above canvas) ───────────────────────── */
+      #prop-mode {
+        font-size: 0.75rem;
+        font-family: var(--font-mono);
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+        padding: 0.2rem 0.5rem;
+        border-left: 3px solid currentColor;
+        display: inline-block;
+      }
+
+      #prop-mode[data-mode='fallback'] {
+        color: #ff4444;
+      }
+
+      #prop-mode[data-mode='loading'] {
+        color: #ffab40;
+      }
+
+      #prop-mode[data-mode='live'] {
+        color: #39ff14;
+      }
+
       #hud-panel button {
         background: transparent;
         border: 1px solid #3a7a3a;
@@ -323,6 +346,11 @@
       <h1 style="font-size: 1.3rem; font-weight: 600; color: var(--accent); margin-bottom: 0.5rem">
         gnss constellation
       </h1>
+
+      <!-- Propagation mode banner — red = keplerian approx, green = live SGP4 -->
+      <div id="prop-mode" data-mode="fallback">
+        <span id="prop-mode-text">⚠ keplerian fallback — approximate orbits</span>
+      </div>
 
       <div class="gnss-viz-container">
         <canvas id="gnss-canvas" aria-label="GNSS constellation orbit visualization"></canvas>
