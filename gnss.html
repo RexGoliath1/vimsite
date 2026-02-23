@@ -69,6 +69,15 @@
         text-align: right;
       }
 
+      /* Keplerian fallback — orange to signal approximate/loading mode */
+      #tle-status[data-mode='fallback'] {
+        color: #ffab40;
+      }
+
+      #tle-status[data-mode='live'] {
+        color: #5a9a5a;
+      }
+
       #hud-panel button {
         background: transparent;
         border: 1px solid #3a7a3a;
@@ -99,14 +108,16 @@
       }
 
       .hud-warp {
-        gap: 4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
       }
 
       #time-warp-slider {
         flex: 1;
-        max-width: 100px;
-        accent-color: #39ff14;
+        width: 100%;
         min-width: 0;
+        accent-color: #39ff14;
       }
 
       #time-warp-value {
@@ -196,6 +207,61 @@
       .hud-location input[type='number']::-webkit-inner-spin-button,
       .hud-location input[type='number']::-webkit-outer-spin-button {
         -webkit-appearance: none;
+      }
+
+      #elev-mask-slider {
+        flex: 1;
+        accent-color: #39ff14;
+      }
+
+      .hud-elev-mask {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      /* ── Overlay toggles ──────────────────────────────────────────────── */
+      .hud-section-label {
+        font-size: 0.7rem;
+        color: #5a9a5a;
+        letter-spacing: 0.08em;
+        margin-top: 6px;
+        margin-bottom: 2px;
+        text-transform: uppercase;
+      }
+
+      .hud-toggles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+      }
+
+      .hud-toggle {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 0.78rem;
+        color: #9dd49d;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .hud-toggle input[type='checkbox'] {
+        accent-color: #39ff14;
+        cursor: pointer;
+      }
+
+      /* ── PRN list panel ───────────────────────────────────────────────── */
+      #prn-list {
+        font-size: 0.72rem;
+        line-height: 1.6;
+        color: #7ab87a;
+        max-height: 80px;
+        overflow-y: auto;
+      }
+
+      #prn-list-panel {
+        margin-top: 6px;
       }
 
       /* ── Sky plot ─────────────────────────────────────────────────────── */
@@ -290,12 +356,39 @@
             </div>
           </div>
 
+          <!-- Overlay toggles -->
+          <div class="hud-section-label">overlays</div>
+          <div class="hud-toggles">
+            <label class="hud-toggle"
+              ><input type="checkbox" id="toggle-inc-rings" checked /> inc rings</label
+            >
+            <label class="hud-toggle"
+              ><input type="checkbox" id="toggle-ecef-axes" /> ecef axes</label
+            >
+            <label class="hud-toggle"
+              ><input type="checkbox" id="toggle-eci-axes" /> eci axes</label
+            >
+            <label class="hud-toggle"
+              ><input type="checkbox" id="toggle-borders" checked /> borders</label
+            >
+            <label class="hud-toggle"
+              ><input type="checkbox" id="toggle-elev-cone" /> elev cone</label
+            >
+          </div>
+
           <!-- Visible-only filter -->
           <div class="hud-row hud-vis-only">
             <label>
               <input id="toggle-visible-only" type="checkbox" />
               <span>visible only (el &gt; 5°)</span>
             </label>
+          </div>
+
+          <!-- Elevation mask slider -->
+          <div class="hud-row hud-elev-mask">
+            <label>mask</label>
+            <input type="range" id="elev-mask-slider" min="0" max="30" step="1" value="5" />
+            <span id="elev-mask-value">5°</span>
           </div>
 
           <hr class="hud-divider" />
@@ -328,6 +421,12 @@
             height="260"
             aria-label="Sky plot: satellite azimuth/elevation from observer"
           ></canvas>
+
+          <!-- PRN list panel -->
+          <div id="prn-list-panel">
+            <div class="hud-section-label">visible prns</div>
+            <div id="prn-list"></div>
+          </div>
         </div>
         <!-- /#hud-panel -->
       </div>

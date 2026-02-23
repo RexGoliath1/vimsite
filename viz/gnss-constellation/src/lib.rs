@@ -1,6 +1,7 @@
 mod coords;
 mod tles;
 mod ground;
+pub mod borders;
 
 use std::cell::RefCell;
 use std::f32::consts::PI;
@@ -26,13 +27,25 @@ struct GnssState {
     sat_ecef_km: Vec<(u8, [f64; 3])>,
     /// Simulation time acceleration (e.g. 120 = 2 min real time per sim second).
     time_warp: f64,
+    /// Configurable elevation mask in degrees (default 5.0). Replaces the old hardcoded 5.0.
+    elev_mask_deg: f64,
+    /// Visibility toggles for overlay objects.
+    show_inc_rings: bool,
+    show_ecef_axes: bool,
+    show_eci_axes: bool,
+    show_borders: bool,
+    show_elev_cone: bool,
+    /// Injected country border JSON. Set by inject_borders(), consumed by render loop.
+    borders_json: Option<String>,
+    /// True when borders_json was updated but the mesh hasn't been rebuilt yet.
+    borders_dirty: bool,
 }
 
 impl Default for GnssState {
     fn default() -> Self {
         GnssState {
             tle_store: TleStore::new(),
-            observer: Observer::default(),
+            observer: ground::Observer::new(0.0, 0.0),
             sim_epoch: 0.0,
             paused: false,
             visible_only: false,
@@ -40,6 +53,14 @@ impl Default for GnssState {
             highlighted: -1,
             sat_ecef_km: Vec::new(),
             time_warp: 120.0,
+            elev_mask_deg: 5.0,
+            show_inc_rings: true,
+            show_ecef_axes: false,
+            show_eci_axes: false,
+            show_borders: true,
+            show_elev_cone: false,
+            borders_json: None,
+            borders_dirty: false,
         }
     }
 }
@@ -83,6 +104,45 @@ pub fn set_time_warp(v: f64) {
 }
 
 #[wasm_bindgen]
+pub fn set_elev_mask(v: f64) {
+    STATE.with(|s| s.borrow_mut().elev_mask_deg = v.clamp(0.0, 89.0));
+}
+
+#[wasm_bindgen]
+pub fn set_show_inc_rings(on: bool) {
+    STATE.with(|s| s.borrow_mut().show_inc_rings = on);
+}
+
+#[wasm_bindgen]
+pub fn set_show_ecef_axes(on: bool) {
+    STATE.with(|s| s.borrow_mut().show_ecef_axes = on);
+}
+
+#[wasm_bindgen]
+pub fn set_show_eci_axes(on: bool) {
+    STATE.with(|s| s.borrow_mut().show_eci_axes = on);
+}
+
+#[wasm_bindgen]
+pub fn set_show_borders(on: bool) {
+    STATE.with(|s| s.borrow_mut().show_borders = on);
+}
+
+#[wasm_bindgen]
+pub fn set_show_elev_cone(on: bool) {
+    STATE.with(|s| s.borrow_mut().show_elev_cone = on);
+}
+
+#[wasm_bindgen]
+pub fn inject_borders(json: &str) {
+    STATE.with(|s| {
+        let mut st = s.borrow_mut();
+        st.borders_json = Some(json.to_string());
+        st.borders_dirty = true;
+    });
+}
+
+#[wasm_bindgen]
 pub fn get_sim_epoch() -> f64 {
     STATE.with(|s| s.borrow().sim_epoch)
 }
@@ -106,7 +166,7 @@ pub fn inject_tles(json: &str) {
 }
 
 /// Returns a JS Array of sky-plot entries for the current sim epoch.
-/// Each entry: `{ name, constellation, az_deg, el_deg, r, g, b }`
+/// Each entry: `{ name, constellation, az_deg, el_deg, r, g, b, c_n0 }`
 #[wasm_bindgen]
 pub fn get_sky_data() -> JsValue {
     STATE.with(|s| {
@@ -118,7 +178,8 @@ pub fn get_sky_data() -> JsValue {
         let sky_sats: Vec<ground::SkySat> = st
             .sat_ecef_km
             .iter()
-            .filter_map(|(c_idx, pos_km)| {
+            .enumerate()
+            .filter_map(|(sat_idx, (c_idx, pos_km))| {
                 let ci = *c_idx as usize;
                 if !st.constellation_visible.get(ci).copied().unwrap_or(false) {
                     return None;
@@ -127,10 +188,18 @@ pub fn get_sky_data() -> JsValue {
                 if el < 0.0 {
                     return None; // below horizon
                 }
-                if st.visible_only && el < 5.0 {
+                if st.visible_only && el < st.elev_mask_deg {
                     return None;
                 }
                 let [r, g, b] = ground::constellation_color(*c_idx);
+                let c_n0 = ground::simulate_c_n0(
+                    el as f32,
+                    st.observer.lat_deg,
+                    st.observer.lon_deg,
+                    st.sim_epoch,
+                    *c_idx,
+                    sat_idx,
+                );
                 Some(ground::SkySat {
                     name: String::new(),
                     constellation: *c_idx,
@@ -139,6 +208,7 @@ pub fn get_sky_data() -> JsValue {
                     r,
                     g,
                     b,
+                    c_n0,
                 })
             })
             .collect();
@@ -339,6 +409,86 @@ pub fn start() {
         })
         .collect();
 
+    // ── ECEF reference frame axes — static dot lines ─────────────────────────
+    let axis_dot_mesh = CpuMesh::sphere(2);
+    let axis_dot_scale = Mat4::from_scale(0.012f32);
+    let n_axis_dots: i32 = 18;
+    let axis_max_r = 1.5f32;
+
+    let ecef_gm_x = {
+        let dir = vec3(1.0f32, 0.0, 0.0);
+        let xforms: Vec<Mat4> = (1..=n_axis_dots)
+            .map(|i| {
+                let t = i as f32 * axis_max_r / n_axis_dots as f32;
+                Mat4::from_translation(dir * t) * axis_dot_scale
+            })
+            .collect();
+        Gm::new(
+            InstancedMesh::new(&context, &Instances { transformations: xforms, ..Default::default() }, &axis_dot_mesh),
+            ColorMaterial { color: Srgba::new(255, 80, 80, 255), ..Default::default() },
+        )
+    };
+    let ecef_gm_y = {
+        let dir = vec3(0.0f32, 1.0, 0.0);
+        let xforms: Vec<Mat4> = (1..=n_axis_dots)
+            .map(|i| {
+                let t = i as f32 * axis_max_r / n_axis_dots as f32;
+                Mat4::from_translation(dir * t) * axis_dot_scale
+            })
+            .collect();
+        Gm::new(
+            InstancedMesh::new(&context, &Instances { transformations: xforms, ..Default::default() }, &axis_dot_mesh),
+            ColorMaterial { color: Srgba::new(80, 255, 80, 255), ..Default::default() },
+        )
+    };
+    let ecef_gm_z = {
+        let dir = vec3(0.0f32, 0.0, 1.0);
+        let xforms: Vec<Mat4> = (1..=n_axis_dots)
+            .map(|i| {
+                let t = i as f32 * axis_max_r / n_axis_dots as f32;
+                Mat4::from_translation(dir * t) * axis_dot_scale
+            })
+            .collect();
+        Gm::new(
+            InstancedMesh::new(&context, &Instances { transformations: xforms, ..Default::default() }, &axis_dot_mesh),
+            ColorMaterial { color: Srgba::new(80, 80, 255, 255), ..Default::default() },
+        )
+    };
+
+    // ── ECI axes — placeholder transforms, updated each frame based on GMST ──
+    let mut eci_gm_x = Gm::new(
+        InstancedMesh::new(&context, &Instances { transformations: vec![Mat4::from_scale(0.0)], ..Default::default() }, &axis_dot_mesh),
+        ColorMaterial { color: Srgba::new(255, 160, 80, 255), ..Default::default() }, // orange
+    );
+    let mut eci_gm_y = Gm::new(
+        InstancedMesh::new(&context, &Instances { transformations: vec![Mat4::from_scale(0.0)], ..Default::default() }, &axis_dot_mesh),
+        ColorMaterial { color: Srgba::new(160, 80, 255, 255), ..Default::default() }, // purple
+    );
+    let eci_gm_z = {
+        // ECI Z = ECEF Z, light blue
+        let dir = vec3(0.0f32, 0.0, 1.0);
+        let xforms: Vec<Mat4> = (1..=n_axis_dots)
+            .map(|i| {
+                let t = i as f32 * axis_max_r / n_axis_dots as f32;
+                Mat4::from_translation(dir * t) * axis_dot_scale
+            })
+            .collect();
+        Gm::new(
+            InstancedMesh::new(&context, &Instances { transformations: xforms, ..Default::default() }, &axis_dot_mesh),
+            ColorMaterial { color: Srgba::new(80, 160, 255, 200), ..Default::default() },
+        )
+    };
+
+    // ── Elevation cone ring — updated each frame ──────────────────────────────
+    let cone_dot_mesh = CpuMesh::sphere(2);
+    let mut elev_cone_gm = Gm::new(
+        InstancedMesh::new(&context, &Instances { transformations: vec![Mat4::from_scale(0.0)], ..Default::default() }, &cone_dot_mesh),
+        ColorMaterial { color: Srgba::new(80, 255, 120, 180), ..Default::default() }, // transparent green
+    );
+
+    // ── Country borders — built lazily when inject_borders() is called ────────
+    let mut borders_gm: Option<Gm<Mesh, ColorMaterial>> = None;
+
     window.render_loop(move |mut frame_input| {
         // ── 1. Advance sim clock ──────────────────────────────────────────
         let paused = STATE.with(|s| s.borrow().paused);
@@ -355,9 +505,22 @@ pub fn start() {
         camera.set_viewport(frame_input.viewport);
 
         // ── 3. Read display state snapshot ───────────────────────────────
-        let (has_tles, cv, highlighted, visible_only) = STATE.with(|s| {
+        let (has_tles, cv, highlighted, visible_only, elev_mask, show_inc_rings, show_ecef_axes,
+             show_eci_axes, show_borders, show_elev_cone, borders_dirty) = STATE.with(|s| {
             let st = s.borrow();
-            (!st.tle_store.is_empty(), st.constellation_visible, st.highlighted, st.visible_only)
+            (
+                !st.tle_store.is_empty(),
+                st.constellation_visible,
+                st.highlighted,
+                st.visible_only,
+                st.elev_mask_deg,
+                st.show_inc_rings,
+                st.show_ecef_axes,
+                st.show_eci_axes,
+                st.show_borders,
+                st.show_elev_cone,
+                st.borders_dirty,
+            )
         });
 
         // ── 4. Update Keplerian orbit ring colours (highlight / dim) ──────
@@ -405,9 +568,14 @@ pub fn start() {
                     ecef.iter()
                         .filter(|(c, _)| *c as usize == ci)
                         .filter_map(|(_, pos_km)| {
+                            // Health check: skip satellites at implausible altitude (decayed or bad TLE)
+                            let alt_km = (pos_km[0].powi(2) + pos_km[1].powi(2) + pos_km[2].powi(2)).sqrt() - 6371.0;
+                            if alt_km < 100.0 || alt_km > 50_000.0 {
+                                return None;
+                            }
                             if visible_only {
                                 let (_, el) = coords::az_el(obs_km, *pos_km);
-                                if el < 5.0 { return None; }
+                                if el < elev_mask { return None; }
                             }
                             let s = coords::km_to_scene(*pos_km);
                             Some(Mat4::from_translation(vec3(s[0], s[1], s[2])) * sat_scale)
@@ -451,7 +619,7 @@ pub fn start() {
                             if visible_only {
                                 let sat_km = [p.x as f64 * 6371.0, p.y as f64 * 6371.0, p.z as f64 * 6371.0];
                                 let (_, el) = coords::az_el(obs_km_kepler, sat_km);
-                                if el < 5.0 { return None; }
+                                if el < elev_mask { return None; }
                             }
                             Some(Mat4::from_translation(p) * sat_scale)
                         })
@@ -460,6 +628,23 @@ pub fn start() {
                 if xf.is_empty() { xf.push(Mat4::from_scale(0.0)); }
                 sat_gms[idx].geometry.set_instances(&Instances { transformations: xf, ..Default::default() });
             }
+            // Populate sat_ecef_km from Keplerian positions so get_sky_data() works in fallback mode.
+            // Keplerian positions are in normalized scene units (Earth radius = 1); multiply by 6371 for km.
+            // NOTE: these positions are in the scene/ECEF-like frame, not true ECI. Elevation/azimuth
+            // values will be approximately correct for visualization purposes.
+            let kepler_ecef: Vec<(u8, [f64; 3])> = states.iter().enumerate().flat_map(|(const_idx, s)| {
+                let t_f = sim_epoch as f32;
+                (0..s.planes).flat_map(move |p| {
+                    let raan = s.roff + p as f32 * s.rsp;
+                    (0..s.sats_per_plane).map(move |i| {
+                        let ma = i as f32 * 2.0 * PI / s.sats_per_plane as f32 + s.mm * t_f;
+                        let pos = kpos(s.r, s.inc, raan, ma);
+                        (const_idx as u8, [pos.x as f64 * 6371.0, pos.y as f64 * 6371.0, pos.z as f64 * 6371.0])
+                    })
+                })
+            }).collect();
+            STATE.with(|s| s.borrow_mut().sat_ecef_km = kepler_ecef);
+
             for sg in &mut tle_sat_gms {
                 sg.geometry.set_instances(&Instances {
                     transformations: vec![Mat4::from_scale(0.0)],
@@ -475,11 +660,81 @@ pub fn start() {
                 * Mat4::from_scale(0.06),
         );
 
+        // ── 6b. ECI axes — rotate with GMST ──────────────────────────────────────
+        let gmst = coords::gmst_rad(sim_epoch) as f32;
+        // ECI X direction in ECEF coords: (cos(GMST), sin(GMST), 0)
+        // ECI Y direction in ECEF coords: (-sin(GMST), cos(GMST), 0)
+        let eci_x_dir = vec3(gmst.cos(), gmst.sin(), 0.0f32);
+        let eci_y_dir = vec3(-gmst.sin(), gmst.cos(), 0.0f32);
+        if show_eci_axes {
+            let eci_xf = |dir: Vec3| -> Vec<Mat4> {
+                (1..=18i32).map(|i| {
+                    Mat4::from_translation(dir * (i as f32 * 1.5 / 18.0)) * Mat4::from_scale(0.012)
+                }).collect()
+            };
+            eci_gm_x.geometry.set_instances(&Instances { transformations: eci_xf(eci_x_dir), ..Default::default() });
+            eci_gm_y.geometry.set_instances(&Instances { transformations: eci_xf(eci_y_dir), ..Default::default() });
+        } else {
+            let hidden = vec![Mat4::from_scale(0.0)];
+            eci_gm_x.geometry.set_instances(&Instances { transformations: hidden.clone(), ..Default::default() });
+            eci_gm_y.geometry.set_instances(&Instances { transformations: hidden, ..Default::default() });
+        }
+
+        // ── 6c. Elevation cone ring ───────────────────────────────────────────────
+        if show_elev_cone {
+            let obs_pos = STATE.with(|s| s.borrow().observer.scene_pos());
+            let obs_n = vec3(obs_pos[0], obs_pos[1], obs_pos[2]).normalize();
+            // Build orthonormal basis for the observer's local frame
+            let up_ref = if obs_n.z.abs() < 0.9 { vec3(0.0f32, 0.0, 1.0) } else { vec3(1.0f32, 0.0, 0.0) };
+            let e1 = obs_n.cross(up_ref).normalize();
+            let e2 = obs_n.cross(e1).normalize();
+            let el_rad = elev_mask as f32 * std::f32::consts::PI / 180.0;
+            let ring_r = 1.6f32; // place ring at ~0.6 Earth radii above surface, near sat altitude
+            let n_cone_pts = 64i32;
+            let cone_xforms: Vec<Mat4> = (0..n_cone_pts).map(|i| {
+                let phi = i as f32 * 2.0 * std::f32::consts::PI / n_cone_pts as f32;
+                // Direction from observer toward the elevation mask boundary:
+                // el_rad above local horizon = 90°-el_rad from zenith
+                let dir = (el_rad.sin() * obs_n + el_rad.cos() * (phi.cos() * e1 + phi.sin() * e2)).normalize();
+                let pt = dir * ring_r;
+                Mat4::from_translation(pt) * Mat4::from_scale(0.009)
+            }).collect();
+            elev_cone_gm.geometry.set_instances(&Instances { transformations: cone_xforms, ..Default::default() });
+        } else {
+            elev_cone_gm.geometry.set_instances(&Instances {
+                transformations: vec![Mat4::from_scale(0.0)],
+                ..Default::default()
+            });
+        }
+
+        // ── 6d. Country borders — lazy rebuild when inject_borders() called ───────
+        if borders_dirty {
+            let json_opt = STATE.with(|s| s.borrow().borders_json.clone());
+            if let Some(ref json) = json_opt {
+                borders_gm = borders::build_border_lines(&context, json);
+            }
+            STATE.with(|s| s.borrow_mut().borders_dirty = false);
+        }
+
         // ── 7. Render ─────────────────────────────────────────────────────
         let mut objs: Vec<&dyn Object> = vec![&earth, &eq_ring, &graticule, &ground_marker];
-        for g in &orbit_gms  { objs.push(g); }
+        if show_inc_rings {
+            for g in &orbit_gms { objs.push(g); }
+        }
         for g in &sat_gms    { objs.push(g); }
         for g in &tle_sat_gms { objs.push(g); }
+        if show_ecef_axes {
+            objs.push(&ecef_gm_x);
+            objs.push(&ecef_gm_y);
+            objs.push(&ecef_gm_z);
+        }
+        objs.push(&eci_gm_x);
+        objs.push(&eci_gm_y);
+        objs.push(&eci_gm_z);
+        if show_elev_cone { objs.push(&elev_cone_gm); }
+        if let Some(ref brd) = borders_gm {
+            if show_borders { objs.push(brd); }
+        }
 
         frame_input
             .screen()

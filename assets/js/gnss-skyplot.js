@@ -9,19 +9,26 @@
  *   renderSkyPlot(ctx, sats, width, height) — pure render function
  */
 
-const CONSTELLATION_NAMES = ["GPS", "GLONASS", "Galileo", "BeiDou"];
+const CONSTELLATION_NAMES = ['GPS', 'GLONASS', 'Galileo', 'BeiDou'];
 
 const COLORS = {
-  background: "#000000",
-  ringDimGreen: "#1a3a1a",
-  compassLabel: "#2a6a2a",
-  ringLabel: "#3a5a3a",
-  crosshair: "#0f2a0f",
-  panelTitle: "#2a6a2a",
-  zenith: "#1a3a1a",
+  background: '#000000',
+  ring: '#2a5a2a', // was ringDimGreen — brighter rings
+  compassLabel: '#6ab86a', // was "#2a6a2a" — clearly readable
+  ringLabel: '#5aaa5a', // was "#3a5a3a"
+  crosshair: '#1a3a1a', // was "#0f2a0f" — slightly brighter
+  panelTitle: '#7acc7a', // was "#2a6a2a"
+  zenith: '#3a7a3a', // was "#1a3a1a"
 };
 
-const FONT_FAMILY = "IBM Plex Mono, monospace";
+const FONT_FAMILY = 'IBM Plex Mono, monospace';
+
+// Trail history: key = `${constellation}-${sat_index}`, value = array of
+// {nx, ny, ts, r, g, b} entries. Wall-clock timestamps so trails fade at
+// real speed regardless of sim warp.
+const _trailHistory = new Map();
+const TRAIL_DURATION_MS = 45_000; // 45 seconds wall clock
+const TRAIL_MAX_POINTS = 120; // cap to avoid unbounded growth
 
 let _lastRenderTime = 0;
 const RENDER_INTERVAL_MS = 500; // ~2 fps
@@ -31,9 +38,9 @@ const RENDER_INTERVAL_MS = 500; // ~2 fps
  * @param {object} wasmModule — WASM module with .get_sky_data() method
  */
 export function initSkyPlot(wasmModule) {
-  const canvas = document.getElementById("sky-plot-canvas");
+  const canvas = document.getElementById('sky-plot-canvas');
   if (!canvas) {
-    console.warn("[gnss-skyplot] #sky-plot-canvas not found");
+    console.warn('[gnss-skyplot] #sky-plot-canvas not found');
     return;
   }
 
@@ -43,12 +50,12 @@ export function initSkyPlot(wasmModule) {
   // Scale canvas backing store for crisp rendering on HiDPI displays
   canvas.width = logicalSize * dpr;
   canvas.height = logicalSize * dpr;
-  canvas.style.width = logicalSize + "px";
-  canvas.style.height = logicalSize + "px";
+  canvas.style.width = logicalSize + 'px';
+  canvas.style.height = logicalSize + 'px';
 
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext('2d');
   if (!ctx) {
-    console.warn("[gnss-skyplot] Could not get 2D context from #sky-plot-canvas");
+    console.warn('[gnss-skyplot] Could not get 2D context from #sky-plot-canvas');
     return;
   }
 
@@ -63,20 +70,48 @@ export function initSkyPlot(wasmModule) {
       try {
         sats = wasmModule.get_sky_data();
       } catch (err) {
-        console.error("[gnss-skyplot] get_sky_data() failed:", err);
+        console.error('[gnss-skyplot] get_sky_data() failed:', err);
+      }
+
+      // Update trail history
+      const now = performance.now();
+      // Prune old entries across all trails
+      for (const [key, trail] of _trailHistory) {
+        const pruned = trail.filter((p) => now - p.ts < TRAIL_DURATION_MS);
+        if (pruned.length === 0) _trailHistory.delete(key);
+        else _trailHistory.set(key, pruned);
+      }
+      // Record current positions
+      // Group sats by constellation to assign stable per-constellation indices
+      const constCounts = {};
+      for (const sat of sats) {
+        const c = sat.constellation;
+        if (constCounts[c] === undefined) constCounts[c] = 0;
+        const idx = constCounts[c]++;
+        const key = `${c}-${idx}`;
+        const el = Math.max(0, Math.min(90, sat.el_deg));
+        const fraction = (90 - el) / 90;
+        // Store normalized polar coords (will be scaled to plotRadius in render)
+        const azRad = (sat.az_deg * Math.PI) / 180;
+        const nx = fraction * Math.sin(azRad); // normalized x (-1..1)
+        const ny = fraction * Math.cos(azRad); // normalized y (-1..1)
+        const trail = _trailHistory.get(key) || [];
+        trail.push({ nx, ny, ts: now, r: sat.r, g: sat.g, b: sat.b });
+        if (trail.length > TRAIL_MAX_POINTS) trail.shift();
+        _trailHistory.set(key, trail);
       }
 
       // Read current observer location from DOM inputs for the label
-      const latEl = document.getElementById("ground-lat");
-      const lonEl = document.getElementById("ground-lon");
+      const latEl = document.getElementById('ground-lat');
+      const lonEl = document.getElementById('ground-lon');
       const latVal = latEl ? parseFloat(latEl.value) : NaN;
       const lonVal = lonEl ? parseFloat(lonEl.value) : NaN;
       const locationLabel =
         isFinite(latVal) && isFinite(lonVal)
           ? `${latVal.toFixed(2)}° ${lonVal.toFixed(2)}°`
-          : "sky";
+          : 'sky';
 
-      renderSkyPlot(ctx, sats, logicalSize, logicalSize, locationLabel);
+      renderSkyPlot(ctx, sats, logicalSize, logicalSize, locationLabel, _trailHistory);
     }
 
     requestAnimationFrame(loop);
@@ -88,12 +123,20 @@ export function initSkyPlot(wasmModule) {
 /**
  * renderSkyPlot — pure function, renders one frame of the sky plot.
  * @param {CanvasRenderingContext2D} ctx
- * @param {Array<{name: string, constellation: number, az_deg: number, el_deg: number, r: number, g: number, b: number}>} sats
+ * @param {Array<{name: string, constellation: number, az_deg: number, el_deg: number, r: number, g: number, b: number, c_n0: number}>} sats
  * @param {number} width  — logical canvas width (before dpr scaling)
  * @param {number} height — logical canvas height (before dpr scaling)
  * @param {string} [locationLabel] — observer label shown at top-left
+ * @param {Map|null} [trailHistory] — wall-clock trail history from _trailHistory
  */
-export function renderSkyPlot(ctx, sats, width, height, locationLabel = "sky") {
+export function renderSkyPlot(
+  ctx,
+  sats,
+  width,
+  height,
+  locationLabel = 'sky',
+  trailHistory = null,
+) {
   const cx = width / 2;
   const cy = height / 2;
   // Leave a small margin so labels at edge aren't clipped
@@ -105,10 +148,10 @@ export function renderSkyPlot(ctx, sats, width, height, locationLabel = "sky") {
   ctx.fillRect(0, 0, width, height);
 
   // --- Panel title ---
-  ctx.font = `9px ${FONT_FAMILY}`;
+  ctx.font = `10px ${FONT_FAMILY}`;
   ctx.fillStyle = COLORS.panelTitle;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
   ctx.fillText(locationLabel, 4, 3);
 
   // --- Crosshairs ---
@@ -138,7 +181,7 @@ export function renderSkyPlot(ctx, sats, width, height, locationLabel = "sky") {
   // el=90 → fraction=0   → center
   const ringElevations = [0, 30, 60];
 
-  ctx.strokeStyle = COLORS.ringDimGreen;
+  ctx.strokeStyle = COLORS.ring;
   ctx.lineWidth = 0.75;
 
   for (const el of ringElevations) {
@@ -156,11 +199,11 @@ export function renderSkyPlot(ctx, sats, width, height, locationLabel = "sky") {
       const labelX = cx + r * Math.sin(labelAngleRad);
       const labelY = cy - r * Math.cos(labelAngleRad);
 
-      ctx.font = `8px ${FONT_FAMILY}`;
+      ctx.font = `9px ${FONT_FAMILY}`;
       ctx.fillStyle = COLORS.ringLabel;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(el + "\u00b0", labelX, labelY);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(el + '\u00b0', labelX, labelY);
     }
   }
 
@@ -172,11 +215,11 @@ export function renderSkyPlot(ctx, sats, width, height, locationLabel = "sky") {
     const labelX = cx + r * Math.sin(labelAngleRad) * 0.88;
     const labelY = cy - r * Math.cos(labelAngleRad) * 0.88;
 
-    ctx.font = `8px ${FONT_FAMILY}`;
+    ctx.font = `9px ${FONT_FAMILY}`;
     ctx.fillStyle = COLORS.ringLabel;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("0\u00b0", labelX, labelY);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('0\u00b0', labelX, labelY);
   }
 
   // --- Zenith dot ---
@@ -188,16 +231,16 @@ export function renderSkyPlot(ctx, sats, width, height, locationLabel = "sky") {
   // --- Compass labels N/S/E/W ---
   const compassOffset = plotRadius + 10;
   const compassPositions = [
-    { label: "N", dx: 0, dy: -1 },
-    { label: "S", dx: 0, dy: 1 },
-    { label: "E", dx: 1, dy: 0 },
-    { label: "W", dx: -1, dy: 0 },
+    { label: 'N', dx: 0, dy: -1 },
+    { label: 'S', dx: 0, dy: 1 },
+    { label: 'E', dx: 1, dy: 0 },
+    { label: 'W', dx: -1, dy: 0 },
   ];
 
-  ctx.font = `9px ${FONT_FAMILY}`;
+  ctx.font = `10px ${FONT_FAMILY}`;
   ctx.fillStyle = COLORS.compassLabel;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
 
   for (const { label, dx, dy } of compassPositions) {
     ctx.fillText(label, cx + dx * compassOffset, cy + dy * compassOffset);
@@ -205,6 +248,27 @@ export function renderSkyPlot(ctx, sats, width, height, locationLabel = "sky") {
 
   // --- Satellite dots ---
   if (!Array.isArray(sats)) return;
+
+  // --- Trails (fading history) ---
+  if (trailHistory) {
+    const now = performance.now();
+    for (const [key, trail] of trailHistory) {
+      if (trail.length < 2) continue;
+      for (let i = 1; i < trail.length; i++) {
+        const p0 = trail[i - 1];
+        const p1 = trail[i];
+        const age = now - p1.ts;
+        const alpha = Math.max(0, 1 - age / TRAIL_DURATION_MS) * 0.6;
+        if (alpha <= 0) continue;
+        ctx.beginPath();
+        ctx.moveTo(cx + p0.nx * plotRadius, cy - p0.ny * plotRadius);
+        ctx.lineTo(cx + p1.nx * plotRadius, cy - p1.ny * plotRadius);
+        ctx.strokeStyle = `rgba(${p1.r},${p1.g},${p1.b},${alpha.toFixed(3)})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+  }
 
   for (const sat of sats) {
     const { name, az_deg, el_deg, r, g, b } = sat;
@@ -221,30 +285,46 @@ export function renderSkyPlot(ctx, sats, width, height, locationLabel = "sky") {
     const sx = cx + dist * Math.sin(azRad);
     const sy = cy - dist * Math.cos(azRad);
 
+    // C/N0 signal quality factor (0.0 = weakest, 1.0 = strongest)
+    const cn0Factor = sat.c_n0 != null ? Math.min(1, Math.max(0, (sat.c_n0 - 20) / 35)) : 1.0;
+
+    // Dot radius scales with signal quality: 3–6px
+    const dotRadius = 3 + cn0Factor * 3;
+    // Glow ring radius stays proportional
+    const glowRadius = dotRadius + 3;
+
     const satColor = `rgb(${r},${g},${b})`;
     const satColorDim = `rgba(${r},${g},${b},0.4)`;
     const satLabelColor = `rgba(${r},${g},${b},0.65)`;
 
     // Glow ring
     ctx.beginPath();
-    ctx.arc(sx, sy, 7, 0, Math.PI * 2);
+    ctx.arc(sx, sy, glowRadius, 0, Math.PI * 2);
     ctx.strokeStyle = satColorDim;
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
     // Filled dot
     ctx.beginPath();
-    ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+    ctx.arc(sx, sy, dotRadius, 0, Math.PI * 2);
     ctx.fillStyle = satColor;
     ctx.fill();
 
-    // Satellite name label (right of dot, 6px)
-    ctx.font = `6px ${FONT_FAMILY}`;
+    // Satellite name label (right of dot, 7px)
+    ctx.font = `7px ${FONT_FAMILY}`;
     ctx.fillStyle = satLabelColor;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
 
-    const label = name || CONSTELLATION_NAMES[sat.constellation] || "?";
-    ctx.fillText(label, sx + 6, sy);
+    const label = name || CONSTELLATION_NAMES[sat.constellation] || '?';
+    ctx.fillText(label, sx + glowRadius + 2, sy - 3);
+
+    // C/N0 label below the name label
+    if (sat.c_n0 != null) {
+      const cn0Label = sat.c_n0.toFixed(0) + 'dB';
+      ctx.font = `6px ${FONT_FAMILY}`;
+      ctx.fillStyle = `rgba(${r},${g},${b},0.5)`;
+      ctx.fillText(cn0Label, sx + glowRadius + 2, sy + 5);
+    }
   }
 }

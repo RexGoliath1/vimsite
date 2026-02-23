@@ -5,17 +5,31 @@ export function get_sim_epoch(): number;
 
 /**
  * Returns a JS Array of sky-plot entries for the current sim epoch.
- * Each entry: `{ name, constellation, az_deg, el_deg, r, g, b }`
+ * Each entry: `{ name, constellation, az_deg, el_deg, r, g, b, c_n0 }`
  */
 export function get_sky_data(): any;
 
+export function inject_borders(json: string): void;
+
 export function inject_tles(json: string): void;
+
+export function set_elev_mask(v: number): void;
 
 export function set_ground_location(lat: number, lon: number): void;
 
 export function set_highlighted_constellation(idx: number): void;
 
 export function set_paused(on: boolean): void;
+
+export function set_show_borders(on: boolean): void;
+
+export function set_show_ecef_axes(on: boolean): void;
+
+export function set_show_eci_axes(on: boolean): void;
+
+export function set_show_elev_cone(on: boolean): void;
+
+export function set_show_inc_rings(on: boolean): void;
 
 export function set_sim_epoch(unix_s: number): void;
 
@@ -33,25 +47,32 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly get_sim_epoch: () => number;
     readonly get_sky_data: () => any;
+    readonly inject_borders: (a: number, b: number) => void;
     readonly inject_tles: (a: number, b: number) => void;
+    readonly set_elev_mask: (a: number) => void;
     readonly set_ground_location: (a: number, b: number) => void;
     readonly set_highlighted_constellation: (a: number) => void;
     readonly set_paused: (a: number) => void;
+    readonly set_show_borders: (a: number) => void;
+    readonly set_show_ecef_axes: (a: number) => void;
+    readonly set_show_eci_axes: (a: number) => void;
+    readonly set_show_elev_cone: (a: number) => void;
+    readonly set_show_inc_rings: (a: number) => void;
     readonly set_sim_epoch: (a: number) => void;
     readonly set_time_warp: (a: number) => void;
     readonly set_visible_only: (a: number) => void;
     readonly start: () => void;
     readonly toggle_constellation: (a: number, b: number) => void;
-    readonly wasm_bindgen__closure__destroy__h5a7df7e0ff64d37c: (a: number, b: number) => void;
     readonly wasm_bindgen__closure__destroy__h9ce5017ecb4fb027: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__h5a7df7e0ff64d37c: (a: number, b: number) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_1: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_2: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_3: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_4: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_5: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_6: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_7: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_8: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__hef488d895ab7b27f: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
