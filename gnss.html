@@ -45,8 +45,6 @@
         color: #7ab87a;
         box-sizing: border-box;
         line-height: 1.5;
-        max-height: calc(100vh - 140px);
-        overflow-y: auto;
       }
 
       #hud-panel .hud-row {
@@ -258,8 +256,7 @@
         font-size: 0.72rem;
         line-height: 1.6;
         color: #7ab87a;
-        max-height: 80px;
-        overflow-y: auto;
+        max-height: none;
       }
 
       #prn-list-panel {
@@ -409,7 +406,7 @@
           <!-- Elevation mask slider -->
           <div class="hud-row hud-elev-mask">
             <label>mask</label>
-            <input type="range" id="elev-mask-slider" min="0" max="30" step="1" value="5" />
+            <input type="range" id="elev-mask-slider" min="0" max="90" step="1" value="5" />
             <span id="elev-mask-value">5°</span>
           </div>
 

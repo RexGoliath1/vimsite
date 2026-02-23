@@ -264,7 +264,7 @@ const SATS: &[ConstellationDef] = &[
 
 const EARTH_R: f32 = 6371.0;
 const MU: f32 = 398_600.4418;
-const RING_PTS: u32 = 80;
+const RING_PTS: u32 = 240; // dense enough to appear solid
 
 fn alt_norm(alt_km: f32) -> f32 {
     (EARTH_R + alt_km) / EARTH_R
@@ -298,60 +298,6 @@ const CONST_COLORS: [[u8; 3]; 5] = [
     [128, 128, 128],  // Other    — grey
 ];
 
-/// Custom satellite icon: elongated box body + two thin solar panel wings.
-/// Dimensions in mesh-local space:
-///   Bus body:   x∈[-0.5,0.5], y∈[-0.25,0.25], z∈[-0.25,0.25]
-///   Left panel: x∈[-0.5,0.5], y∈[-0.04,0.04], z∈[0.25,1.2]
-///   Right panel: x∈[-0.5,0.5], y∈[-0.04,0.04], z∈[-1.2,-0.25]
-fn satellite_cpu_mesh() -> CpuMesh {
-    let positions = Positions::F32(vec![
-        // Body (0-7)
-        vec3(-0.5_f32, -0.25, -0.25), // 0
-        vec3( 0.5,     -0.25, -0.25), // 1
-        vec3( 0.5,      0.25, -0.25), // 2
-        vec3(-0.5,      0.25, -0.25), // 3
-        vec3(-0.5,     -0.25,  0.25), // 4
-        vec3( 0.5,     -0.25,  0.25), // 5
-        vec3( 0.5,      0.25,  0.25), // 6
-        vec3(-0.5,      0.25,  0.25), // 7
-        // Left panel (8-15)
-        vec3(-0.5, -0.04,  0.25), // 8
-        vec3( 0.5, -0.04,  0.25), // 9
-        vec3( 0.5,  0.04,  0.25), // 10
-        vec3(-0.5,  0.04,  0.25), // 11
-        vec3(-0.5, -0.04,  1.20), // 12
-        vec3( 0.5, -0.04,  1.20), // 13
-        vec3( 0.5,  0.04,  1.20), // 14
-        vec3(-0.5,  0.04,  1.20), // 15
-        // Right panel (16-23)
-        vec3(-0.5, -0.04, -0.25), // 16
-        vec3( 0.5, -0.04, -0.25), // 17
-        vec3( 0.5,  0.04, -0.25), // 18
-        vec3(-0.5,  0.04, -0.25), // 19
-        vec3(-0.5, -0.04, -1.20), // 20
-        vec3( 0.5, -0.04, -1.20), // 21
-        vec3( 0.5,  0.04, -1.20), // 22
-        vec3(-0.5,  0.04, -1.20), // 23
-    ]);
-    let indices = Indices::U32(vec![
-        // Body: 12 triangles (verified CCW winding, outward normals)
-        0,2,1,  0,3,2,   // front face (-z)
-        4,5,6,  4,6,7,   // back face  (+z)
-        0,7,3,  0,4,7,   // left face  (-x)
-        1,2,6,  1,6,5,   // right face (+x)
-        0,1,5,  0,5,4,   // bottom face (-y)
-        3,6,2,  3,7,6,   // top face   (+y)
-        // Left panel: 6 triangles
-        8,9,13,    8,13,12,   // bottom -y
-        11,15,14,  11,14,10,  // top +y
-        12,13,14,  12,14,15,  // far end +z
-        // Right panel: 6 triangles
-        17,16,20,  17,20,21,  // bottom -y
-        19,18,22,  19,22,23,  // top +y
-        21,20,23,  21,23,22,  // far end -z
-    ]);
-    CpuMesh { positions, indices, ..Default::default() }
-}
 
 /// Builds a small cone tower pointing outward from the Earth surface at obs_n.
 /// Apex at 1.10 × Earth radius, base ring at 1.00 (surface), radius 0.025.
@@ -532,9 +478,9 @@ pub fn start() {
 
     // ── Keplerian Phase-1 orbit rings + satellite meshes ──────────────────────
     let ring_dot  = CpuMesh::sphere(3);
-    let sat_dot   = satellite_cpu_mesh();
-    let ring_scale = Mat4::from_scale(0.009);
-    let sat_scale  = Mat4::from_scale(0.03);
+    let sat_dot   = CpuMesh::sphere(4);
+    let ring_scale = Mat4::from_scale(0.013); // slightly larger for solid-ring appearance
+    let sat_scale  = Mat4::from_scale(0.06);  // 2× size for visibility
 
     let mut orbit_gms: Vec<Gm<InstancedMesh, ColorMaterial>> = Vec::new();
     let mut sat_gms:   Vec<Gm<InstancedMesh, ColorMaterial>> = Vec::new();
@@ -879,7 +825,7 @@ pub fn start() {
             let cpu = build_elev_cone(obs_n_cone, elev_mask);
             elev_cone_gm = Some(Gm::new(
                 Mesh::new(&context, &cpu),
-                ColorMaterial { color: Srgba::new(80, 255, 120, 90), ..Default::default() },
+                ColorMaterial { color: Srgba::new(200, 200, 200, 55), ..Default::default() }, // light gray, semi-transparent
             ));
             STATE.with(|s| s.borrow_mut().cone_needs_rebuild = false);
         } else if !show_elev_cone {
