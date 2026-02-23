@@ -273,6 +273,25 @@ function wireTimeControls() {
     });
   }
 
+  // Auto-pause when the tab is hidden; restore state when visible again.
+  let pausedBeforeHide = false;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      pausedBeforeHide = paused;
+      if (!paused) {
+        paused = true;
+        wasm.set_paused(true);
+        if (btnPause) btnPause.textContent = '▶';
+      }
+    } else {
+      if (!pausedBeforeHide && paused) {
+        paused = false;
+        wasm.set_paused(false);
+        if (btnPause) btnPause.textContent = '⏸';
+      }
+    }
+  });
+
   // wire time warp slider (already exists in gnss.html; reinforce in case it loaded after inline script)
   wireTimeWarpSlider();
 }
