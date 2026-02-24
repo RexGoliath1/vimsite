@@ -90,6 +90,37 @@ pub fn az_el(obs_ecef: [f64; 3], sat_ecef: [f64; 3]) -> (f64, f64) {
     (az, el)
 }
 
+/// Compute the ENU (East-North-Up) unit vector from observer to satellite.
+///
+/// Returns a normalised 3-vector `[east, north, up]` pointing from `obs_ecef`
+/// toward `sat_ecef`. Both arguments must be in the same units (km or
+/// normalised); only direction matters for the output.
+pub fn enu_unit(obs_ecef: [f64; 3], sat_ecef: [f64; 3]) -> [f64; 3] {
+    let lon_obs = obs_ecef[1].atan2(obs_ecef[0]);
+    let lat_obs = obs_ecef[2].atan2(
+        (obs_ecef[0] * obs_ecef[0] + obs_ecef[1] * obs_ecef[1]).sqrt(),
+    );
+
+    let (slat, clat) = (lat_obs.sin(), lat_obs.cos());
+    let (slon, clon) = (lon_obs.sin(), lon_obs.cos());
+
+    let d = [
+        sat_ecef[0] - obs_ecef[0],
+        sat_ecef[1] - obs_ecef[1],
+        sat_ecef[2] - obs_ecef[2],
+    ];
+
+    let east  = -slon * d[0] + clon * d[1];
+    let north = -slat * clon * d[0] - slat * slon * d[1] + clat * d[2];
+    let up    =  clat * clon * d[0] + clat * slon * d[1] + slat * d[2];
+
+    let len = (east * east + north * north + up * up).sqrt();
+    if len < 1e-12 {
+        return [0.0, 0.0, 1.0]; // degenerate: sat on top of observer
+    }
+    [east / len, north / len, up / len]
+}
+
 /// Normalise an ECEF position from kilometres to scene units where Earth radius = 1.
 ///
 /// Divides each component by `EARTH_R_KM` (6371 km) and casts to f32 for

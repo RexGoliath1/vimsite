@@ -104,6 +104,7 @@ function wireOverlayToggles() {
     { id: 'toggle-eci-axes', fn: 'set_show_eci_axes' },
     { id: 'toggle-borders', fn: 'set_show_borders' },
     { id: 'toggle-elev-cone', fn: 'set_show_elev_cone' },
+    { id: 'toggle-los-lines', fn: 'set_show_los_lines' },
   ];
   for (const { id, fn } of toggles) {
     const el = document.getElementById(id);
@@ -163,11 +164,20 @@ export function satShortLabel(name, constellation, fallbackN) {
 
 // ─── PRN list updater ─────────────────────────────────────────────────────────
 
+// Lazily imported — set by initHud() after the module is loaded.
+let _pushDopSample = null;
+export function setDopSamplePusher(fn) {
+  _pushDopSample = fn;
+}
+
+const CONST_COLORS_HEX = ['#39ff14', '#ff4444', '#00ffcc', '#ffaa00', '#a050ff', '#ff50a0', '#808080'];
+const CONST_NAMES = ['GPS', 'GLO', 'GAL', 'BDS', 'QZS', 'NAV', 'OTH'];
+
 function startPrnListUpdater() {
   const container = document.getElementById('prn-list');
   if (!container) return;
-  const CONST_COLORS = ['#39ff14', '#ff4444', '#00ffcc', '#ffaa00', '#a050ff', '#ff50a0', '#808080'];
   setInterval(() => {
+    // ── PRN badges ──────────────────────────────────────────────────────────
     let sats;
     try {
       sats = wasm.get_sky_data();
@@ -185,7 +195,7 @@ function startPrnListUpdater() {
     let html = '';
     for (const [c, group] of Object.entries(byConst)) {
       const ci = Number(c);
-      const color = CONST_COLORS[ci] || '#808080';
+      const color = CONST_COLORS_HEX[ci] || '#808080';
       // Sort by elevation descending
       group.sort((a, b) => b.el_deg - a.el_deg);
       const boxes = group
@@ -197,7 +207,66 @@ function startPrnListUpdater() {
       html += `<div style="margin-bottom:2px">${boxes}</div>`;
     }
     container.innerHTML = html || '<span style="color:#3a6a3a">no sats</span>';
+
+    // ── DOP update ──────────────────────────────────────────────────────────
+    updateDop();
   }, 1000);
+}
+
+function updateDop() {
+  if (!wasm.get_dop) return;
+  let dopData;
+  try {
+    dopData = wasm.get_dop();
+  } catch {
+    return;
+  }
+  if (!dopData) return;
+
+  const { combined, by_constellation } = dopData;
+  if (!combined) return;
+
+  // Combined DOP row in right panel
+  const combinedEl = document.getElementById('dop-combined');
+  if (combinedEl) {
+    combinedEl.innerHTML = renderCombinedDop(combined);
+  }
+
+  // Push to DOP history graph
+  let simEpoch = 0;
+  try {
+    simEpoch = wasm.get_sim_epoch ? wasm.get_sim_epoch() : Date.now() / 1000;
+  } catch { /* ignore */ }
+  if (_pushDopSample) _pushDopSample(simEpoch, combined);
+
+  // Per-constellation DOP badges in left panel
+  const constEl = document.getElementById('dop-by-const');
+  if (constEl && Array.isArray(by_constellation)) {
+    constEl.innerHTML = by_constellation
+      .map((d) => {
+        const color = CONST_COLORS_HEX[d.idx] || '#808080';
+        const name = CONST_NAMES[d.idx] || '???';
+        const pdopStr = d.n_sats < 4 ? 'N/A' : d.pdop.toFixed(1);
+        return (
+          `<span style="display:inline-flex;align-items:center;gap:3px;margin:1px 4px 1px 0;font-size:0.72rem">` +
+          `<span style="color:${color}">●</span>` +
+          `<span style="color:#7ab87a">${name}</span>` +
+          `<span style="color:#9dd49d;font-weight:600">${pdopStr}</span>` +
+          `</span>`
+        );
+      })
+      .join('');
+  }
+}
+
+function renderCombinedDop(d) {
+  const fmt = (v) => (v >= 90 ? '<span style="color:#3a6a3a">N/A</span>' : `<span style="color:#9dd49d;font-weight:600">${v.toFixed(1)}</span>`);
+  return (
+    `<span style="color:#5a9a5a;font-size:0.7rem">GDOP</span>${fmt(d.gdop)} ` +
+    `<span style="color:#5a9a5a;font-size:0.7rem">PDOP</span>${fmt(d.pdop)} ` +
+    `<span style="color:#5a9a5a;font-size:0.7rem">HDOP</span>${fmt(d.hdop)} ` +
+    `<span style="color:#5a9a5a;font-size:0.7rem">VDOP</span>${fmt(d.vdop)}`
+  );
 }
 
 // ─── ground location ─────────────────────────────────────────────────────────
