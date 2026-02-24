@@ -395,6 +395,29 @@
       .gnss-footer-note a:hover {
         color: var(--fg-dim);
       }
+
+      /* ── DOP panel ────────────────────────────────────────────────────── */
+      .dop-combined-row {
+        font-size: 0.8rem;
+        line-height: 2;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 8px;
+        color: #9dd49d;
+        min-height: 1.5em;
+      }
+
+      #dop-const-panel {
+        margin-top: 6px;
+      }
+
+      #dop-by-const {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 0;
+        font-size: 0.72rem;
+        color: #7ab87a;
+      }
     </style>
   </head>
   <body>
@@ -429,6 +452,12 @@
           <div id="prn-list-panel">
             <div class="hud-section-label">visible prns</div>
             <div id="prn-list"></div>
+          </div>
+
+          <!-- Per-constellation DOP badges -->
+          <div id="dop-const-panel">
+            <div class="hud-section-label">dop by constellation</div>
+            <div id="dop-by-const"></div>
           </div>
         </div>
         <!-- /#left-panel -->
@@ -543,6 +572,9 @@
             <label class="hud-toggle"
               ><input type="checkbox" id="toggle-elev-cone" /> elev cone</label
             >
+            <label class="hud-toggle"
+              ><input type="checkbox" id="toggle-los-lines" /> los lines</label
+            >
           </div>
 
           <!-- Visible-only filter -->
@@ -559,6 +591,19 @@
             <input type="range" id="elev-mask-slider" min="0" max="90" step="1" value="5" />
             <span id="elev-mask-value">5°</span>
           </div>
+
+          <hr class="hud-divider" />
+
+          <!-- DOP metrics -->
+          <div class="hud-section-label">dop</div>
+          <div id="dop-combined" class="dop-combined-row"></div>
+          <canvas
+            id="dop-history-canvas"
+            width="260"
+            height="110"
+            aria-label="DOP time history graph"
+            style="display: block; margin-top: 4px; border: 1px solid #1a3a1a"
+          ></canvas>
 
           <hr class="hud-divider" />
 
@@ -616,8 +661,9 @@
       //   Firefox headless does NOT support WebGL2 (Mozilla bug #1375585, unfixed).
 
       import initWasm, * as wasmModule from '/assets/wasm/gnss-constellation/gnss_constellation.js';
-      import { initHud } from '/assets/js/gnss-hud.js';
+      import { initHud, setDopSamplePusher } from '/assets/js/gnss-hud.js';
       import { initSkyPlot } from '/assets/js/gnss-skyplot.js';
+      import { initDopPlot, pushDopSample } from '/assets/js/gnss-dopplot.js';
 
       // Show a styled error overlay inside the canvas container.
       function showCompatError(msg) {
@@ -683,6 +729,8 @@
           try {
             initHud(wasmModule);
             initSkyPlot(wasmModule);
+            initDopPlot('dop-history-canvas');
+            setDopSamplePusher(pushDopSample);
 
             // Wire constellation highlight on legend hover
             document.querySelectorAll('.legend-item[data-const-idx]').forEach((el) => {

@@ -13,6 +13,17 @@ export function get_camera_vp_matrix() {
 }
 
 /**
+ * Returns DOP metrics for the current sim state as a plain JS object:
+ * `{ combined: {gdop,pdop,hdop,vdop,tdop,n_sats}, by_constellation: [{idx,gdop,pdop,hdop,vdop,n_sats},...] }`
+ * Call from JS at 1 Hz. Returns null if no satellite data is loaded.
+ * @returns {any}
+ */
+export function get_dop() {
+    const ret = wasm.get_dop();
+    return ret;
+}
+
+/**
  * @returns {number}
  */
 export function get_sim_epoch() {
@@ -121,6 +132,13 @@ export function set_show_elev_cone(on) {
  */
 export function set_show_inc_rings(on) {
     wasm.set_show_inc_rings(on);
+}
+
+/**
+ * @param {boolean} on
+ */
+export function set_show_los_lines(on) {
+    wasm.set_show_los_lines(on);
 }
 
 /**
@@ -1010,13 +1028,13 @@ function __wbg_get_imports() {
             return ret;
         },
         __wbindgen_cast_0000000000000001: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 4, function: Function { arguments: [NamedExternref("BeforeUnloadEvent")], shim_idx: 5, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 35, function: Function { arguments: [NamedExternref("BeforeUnloadEvent")], shim_idx: 5, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h9ce5017ecb4fb027, wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b);
             return ret;
         },
         __wbindgen_cast_0000000000000002: function(arg0, arg1) {
             // Cast intrinsic for `Closure(Closure { dtor_idx: 4, function: Function { arguments: [NamedExternref("Event")], shim_idx: 5, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h9ce5017ecb4fb027, wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_1);
+            const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__ha269213a20b3fe57, wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_1);
             return ret;
         },
         __wbindgen_cast_0000000000000003: function(arg0, arg1) {
@@ -1050,7 +1068,7 @@ function __wbg_get_imports() {
             return ret;
         },
         __wbindgen_cast_0000000000000009: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { dtor_idx: 7, function: Function { arguments: [], shim_idx: 78, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { dtor_idx: 7, function: Function { arguments: [], shim_idx: 79, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm.wasm_bindgen__closure__destroy__h5a7df7e0ff64d37c, wasm_bindgen__convert__closures_____invoke__hef488d895ab7b27f);
             return ret;
         },
