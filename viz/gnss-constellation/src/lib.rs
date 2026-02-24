@@ -1,4 +1,5 @@
 mod coords;
+mod dop;
 mod tles;
 mod ground;
 pub mod borders;
@@ -35,6 +36,8 @@ struct GnssState {
     show_eci_axes: bool,
     show_borders: bool,
     show_elev_cone: bool,
+    /// Whether to render lines-of-sight from observer to each visible satellite.
+    show_los_lines: bool,
     /// Injected country border JSON. Set by inject_borders(), consumed by render loop.
     borders_json: Option<String>,
     /// True when borders_json was updated but the mesh hasn't been rebuilt yet.
@@ -64,6 +67,7 @@ impl Default for GnssState {
             show_eci_axes: false,
             show_borders: true,
             show_elev_cone: false,
+            show_los_lines: false,
             borders_json: None,
             borders_dirty: false,
             cone_needs_rebuild: true,
@@ -150,6 +154,94 @@ pub fn set_show_elev_cone(on: bool) {
         st.show_elev_cone = on;
         st.cone_needs_rebuild = true;
     });
+}
+
+#[wasm_bindgen]
+pub fn set_show_los_lines(on: bool) {
+    STATE.with(|s| s.borrow_mut().show_los_lines = on);
+}
+
+/// Returns DOP metrics for the current sim state as a plain JS object:
+/// `{ combined: {gdop,pdop,hdop,vdop,tdop,n_sats}, by_constellation: [{idx,gdop,pdop,hdop,vdop,n_sats},...] }`
+/// Call from JS at 1 Hz. Returns null if no satellite data is loaded.
+#[wasm_bindgen]
+pub fn get_dop() -> JsValue {
+    use serde::Serialize;
+    use serde_wasm_bindgen::Serializer;
+
+    #[derive(Serialize)]
+    struct DopOut {
+        gdop: f32,
+        pdop: f32,
+        hdop: f32,
+        vdop: f32,
+        tdop: f32,
+        n_sats: u32,
+    }
+
+    #[derive(Serialize)]
+    struct ConstDop {
+        idx: u8,
+        gdop: f32,
+        pdop: f32,
+        hdop: f32,
+        vdop: f32,
+        n_sats: u32,
+    }
+
+    #[derive(Serialize)]
+    struct DopPayload {
+        combined: DopOut,
+        by_constellation: Vec<ConstDop>,
+    }
+
+    STATE.with(|s| {
+        let st = s.borrow();
+        let u = st.observer.ecef_unit();
+        let obs_km = [u[0] * 6371.0, u[1] * 6371.0, u[2] * 6371.0];
+        let elev_mask = st.elev_mask_deg;
+
+        // Combined DOP across all enabled constellations
+        let combined_ecef: Vec<(u8, [f64; 3])> = st.sat_ecef_km.iter()
+            .filter(|(ci, _)| st.constellation_visible.get(*ci as usize).copied().unwrap_or(false))
+            .copied()
+            .collect();
+
+        let comb = dop::compute_dop(&combined_ecef, obs_km, elev_mask);
+
+        // Per-constellation DOP
+        let mut by_constellation: Vec<ConstDop> = Vec::new();
+        for ci in 0..7usize {
+            if !st.constellation_visible.get(ci).copied().unwrap_or(false) {
+                continue;
+            }
+            let filtered: Vec<(u8, [f64; 3])> = st.sat_ecef_km.iter()
+                .filter(|(c, _)| *c as usize == ci)
+                .copied()
+                .collect();
+            if filtered.is_empty() { continue; }
+            let d = dop::compute_dop(&filtered, obs_km, elev_mask);
+            by_constellation.push(ConstDop {
+                idx: ci as u8,
+                gdop: d.gdop,
+                pdop: d.pdop,
+                hdop: d.hdop,
+                vdop: d.vdop,
+                n_sats: d.n_sats,
+            });
+        }
+
+        let payload = DopPayload {
+            combined: DopOut {
+                gdop: comb.gdop, pdop: comb.pdop, hdop: comb.hdop,
+                vdop: comb.vdop, tdop: comb.tdop, n_sats: comb.n_sats,
+            },
+            by_constellation,
+        };
+
+        let s = Serializer::json_compatible();
+        payload.serialize(&s).unwrap_or(JsValue::NULL)
+    })
 }
 
 #[wasm_bindgen]
@@ -654,6 +746,25 @@ pub fn start() {
     // ── Country borders — built lazily when inject_borders() is called ────────
     let mut borders_gm: Option<Gm<Mesh, ColorMaterial>> = None;
 
+    // ── LOS (line-of-sight) lines — thin cylinders, one per visible satellite ─
+    // Each cylinder is aligned along the observer→satellite direction.
+    // Rebuilt when show_los_lines && satellites are propagated.
+    let los_cylinder = CpuMesh::cylinder(6);
+    // 7 Gms — one per constellation, with per-constellation color.
+    let mut los_gms: Vec<Gm<InstancedMesh, ColorMaterial>> = CONST_COLORS
+        .iter()
+        .map(|rgb| {
+            Gm::new(
+                InstancedMesh::new(
+                    &context,
+                    &Instances { transformations: vec![Mat4::from_scale(0.0)], ..Default::default() },
+                    &los_cylinder,
+                ),
+                ColorMaterial { color: Srgba::new(rgb[0], rgb[1], rgb[2], 180), ..Default::default() },
+            )
+        })
+        .collect();
+
     // Capture simulation epoch at render-loop start — used as J2 precession reference.
     let epoch_zero = STATE.with(|s| s.borrow().sim_epoch);
 
@@ -724,7 +835,7 @@ pub fn start() {
 
         // ── 3. Read display state snapshot ───────────────────────────────
         let (has_tles, cv, highlighted, visible_only, elev_mask, show_inc_rings, show_ecef_axes,
-             show_eci_axes, show_borders, show_elev_cone, borders_dirty) = STATE.with(|s| {
+             show_eci_axes, show_borders, show_elev_cone, show_los_lines, borders_dirty) = STATE.with(|s| {
             let st = s.borrow();
             (
                 !st.tle_store.is_empty(),
@@ -737,6 +848,7 @@ pub fn start() {
                 st.show_eci_axes,
                 st.show_borders,
                 st.show_elev_cone,
+                st.show_los_lines,
                 st.borders_dirty,
             )
         });
@@ -968,6 +1080,69 @@ pub fn start() {
             STATE.with(|s| s.borrow_mut().borders_dirty = false);
         }
 
+        // ── 6e. LOS lines — rebuild per-constellation when show_los_lines ───────
+        {
+            let obs_scene = STATE.with(|s| s.borrow().observer.scene_pos());
+            let obs_s = vec3(obs_scene[0], obs_scene[1], obs_scene[2]);
+            let obs_km = {
+                let u = STATE.with(|s| s.borrow().observer.ecef_unit());
+                [u[0] * 6371.0, u[1] * 6371.0, u[2] * 6371.0]
+            };
+            let ecef_snap = if show_los_lines {
+                STATE.with(|s| s.borrow().sat_ecef_km.clone())
+            } else {
+                Vec::new()
+            };
+
+            for ci in 0..CONST_COLORS.len() {
+                if !show_los_lines || !cv[ci] {
+                    los_gms[ci].geometry.set_instances(&Instances {
+                        transformations: vec![Mat4::from_scale(0.0)],
+                        ..Default::default()
+                    });
+                    continue;
+                }
+
+                let mut xf: Vec<Mat4> = ecef_snap
+                    .iter()
+                    .filter(|(c, _)| *c as usize == ci)
+                    .filter_map(|(_, pos_km)| {
+                        let (_, el) = coords::az_el(obs_km, *pos_km);
+                        if el < elev_mask { return None; }
+                        let s = coords::km_to_scene(*pos_km);
+                        let sat_s = vec3(s[0], s[1], s[2]);
+                        let diff = sat_s - obs_s;
+                        let len = diff.magnitude();
+                        if len < 1e-4 { return None; }
+                        let dir = diff / len;
+
+                        // CpuMesh::cylinder spans y=[0,1] with radius 0.5, centred at x=z=0.
+                        // Transform: base at obs_s, scaled so top reaches sat_s.
+                        // T(obs_s) * R(align_Y_to_dir) * S(radius, len, radius)
+                        let default_dir = vec3(0.0f32, 1.0, 0.0);
+                        let rot = if (dir - default_dir).magnitude() < 1e-5 {
+                            Mat4::identity()
+                        } else if (dir + default_dir).magnitude() < 1e-5 {
+                            Mat4::from_angle_x(radians(std::f32::consts::PI))
+                        } else {
+                            let axis = default_dir.cross(dir).normalize();
+                            let angle = default_dir.dot(dir).acos();
+                            Mat4::from_axis_angle(axis, radians(angle))
+                        };
+
+                        Some(
+                            Mat4::from_translation(obs_s)
+                                * rot
+                                * Mat4::from_nonuniform_scale(0.003, len, 0.003),
+                        )
+                    })
+                    .collect();
+
+                if xf.is_empty() { xf.push(Mat4::from_scale(0.0)); }
+                los_gms[ci].geometry.set_instances(&Instances { transformations: xf, ..Default::default() });
+            }
+        }
+
         // ── 7. Render ─────────────────────────────────────────────────────
         let mut objs: Vec<&dyn Object> = vec![&earth, &eq_ring, &graticule, &ground_marker];
         if show_inc_rings {
@@ -988,6 +1163,9 @@ pub fn start() {
         }
         if let Some(ref brd) = borders_gm {
             if show_borders { objs.push(brd); }
+        }
+        if show_los_lines {
+            for g in &los_gms { objs.push(g); }
         }
 
         frame_input
