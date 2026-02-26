@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>gnss station / vimsite</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap"
+    />
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <style>
+      /* Standard max-width layout — not full-viewport like gnss.html */
+      .station-layout {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        margin-top: 1rem;
+      }
+
+      .sky-col {
+        flex-shrink: 0;
+      }
+
+      .cn0-col {
+        flex: 1;
+        min-width: 200px;
+        overflow-x: auto;
+      }
+
+      .panel-label {
+        font-size: 0.7rem;
+        color: var(--fg-dim);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+      }
+
+      #sky-svg {
+        display: block;
+        background: #020a02;
+        border: 1px solid var(--border);
+      }
+
+      #cn0-canvas {
+        display: block;
+        border: 1px solid var(--border);
+      }
+
+      #sat-summary {
+        margin-top: 6px;
+        font-size: 0.75rem;
+        color: var(--fg-dim);
+        letter-spacing: 0.03em;
+      }
+
+      #status-bar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 0.75rem;
+        font-size: 0.78rem;
+      }
+
+      #station-offline {
+        color: #ffab40;
+        border-left: 3px solid #ffab40;
+        padding-left: 6px;
+        letter-spacing: 0.04em;
+      }
+
+      #last-updated {
+        color: var(--fg-dim);
+      }
+
+      #auth-gate {
+        margin-top: 2rem;
+        padding: 1rem 1.25rem;
+        border-left: 3px solid var(--fg-dim);
+        color: var(--fg-dim);
+        font-size: 0.88rem;
+        line-height: 1.7;
+        max-width: 520px;
+      }
+
+      #auth-gate code {
+        color: var(--accent);
+        font-family: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <nav style="font-size: 0.8rem; color: var(--fg-dim)">
+        <a href="index.html">~/log</a> / gnss-station
+      </nav>
+    </header>
+
+    <main>
+      <h1 style="font-size: 1.3rem; font-weight: 600; color: var(--accent); margin-bottom: 0.5rem">
+        gnss station
+      </h1>
+
+      <!-- shown when unauthenticated or token rejected -->
+      <div id="auth-gate" style="display: none">
+        <p id="auth-msg">
+          GNSS data requires authentication. Use the blog editor (press
+          <code>n</code> or <code>e</code> on any page) to authenticate first.
+        </p>
+      </div>
+
+      <!-- shown after a successful data fetch -->
+      <div id="data-view" style="display: none">
+        <div id="status-bar">
+          <span id="station-offline" style="display: none">⚠ station offline</span>
+          <span id="last-updated"></span>
+        </div>
+
+        <div class="station-layout">
+          <div class="sky-col">
+            <div class="panel-label">sky plot</div>
+            <svg
+              id="sky-svg"
+              viewBox="0 0 280 280"
+              width="280"
+              height="280"
+              aria-label="Sky plot: satellite azimuth/elevation from ground station"
+            ></svg>
+            <div id="sat-summary"></div>
+          </div>
+
+          <div class="cn0-col">
+            <div class="panel-label">c/n0 (dBHz)</div>
+            <canvas id="cn0-canvas" aria-label="Carrier-to-noise density bar chart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- TODO: public data layer — see issue #23
+           Decide what (if anything) to display without auth.
+           Candidate: C/N0 bar chart only (no sky geometry = no location synthesis).
+           Blocked on: agreement on what's safe to publish. -->
+    </main>
+
+    <nav class="post-nav">
+      <a class="back" href="index.html">← ~/log</a>
+    </nav>
+
+    <footer>
+      <p class="vim-hint">← → navigate · backspace ~/log</p>
+      <p class="footer-eof">EOF</p>
+    </footer>
+
+    <script src="assets/js/main.js" defer></script>
+    <script>
+      (function () {
+        'use strict';
+
+        const TOKEN_KEY = 'vimsite_token';
+        const POLL_MS = 60_000;
+        const OFFLINE_MS = 5 * 60 * 1000;
+
+        // Constellation colors — GPS=blue, Galileo=orange, GLONASS=green, BDS=red
+        const COLORS = {
+          GPS: { fill: '#5588ff', dim: '#1a2a55' },
+          Galileo: { fill: '#ffab40', dim: '#5a3a10' },
+          GLONASS: { fill: '#39ff14', dim: '#1a4808' },
+          BDS: { fill: '#ff4444', dim: '#551515' },
+        };
+
+        function colorOf(constellation, tracked) {
+          const c = COLORS[constellation] || { fill: '#888888', dim: '#333333' };
+          return tracked ? c.fill : c.dim;
+        }
+
+        function getToken() {
+          return localStorage.getItem(TOKEN_KEY);
+        }
+
+        function showAuthGate() {
+          document.getElementById('auth-gate').style.display = '';
+          document.getElementById('data-view').style.display = 'none';
+        }
+
+        function showDataView() {
+          document.getElementById('auth-gate').style.display = 'none';
+          document.getElementById('data-view').style.display = '';
+        }
+
+        async function fetchLive() {
+          const token = getToken();
+          if (!token) {
+            showAuthGate();
+            return null;
+          }
+          const res = await fetch('/api/gnss/live', {
+            headers: { Authorization: `token ${token}` },
+          });
+          if (res.status === 403) {
+            localStorage.removeItem(TOKEN_KEY);
+            showAuthGate();
+            return null;
+          }
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        }
+
+        function renderSkyPlot(sats) {
+          const CX = 140,
+            CY = 140,
+            MAX_R = 128;
+          function elR(el) {
+            return ((90 - el) / 90) * MAX_R;
+          }
+          function dotR(cn0) {
+            if (cn0 == null) return 3;
+            return 3 + Math.max(0, Math.min(1, (cn0 - 30) / 25)) * 6;
+          }
+
+          let h = '';
+          h += `<rect width="280" height="280" fill="#020a02"/>`;
+
+          // Elevation rings at 0°, 30°, 60° (outer = horizon, inner = zenith)
+          for (const el of [0, 30, 60]) {
+            const r = elR(el);
+            h += `<circle cx="${CX}" cy="${CY}" r="${r.toFixed(1)}" fill="none" stroke="#1a3a1a" stroke-width="1"/>`;
+          }
+
+          // Crosshairs
+          h += `<line x1="${CX}" y1="${CY - MAX_R}" x2="${CX}" y2="${CY + MAX_R}" stroke="#122012" stroke-width="0.5"/>`;
+          h += `<line x1="${CX - MAX_R}" y1="${CY}" x2="${CX + MAX_R}" y2="${CY}" stroke="#122012" stroke-width="0.5"/>`;
+
+          // Cardinal labels — north-up
+          const lOff = MAX_R + 13;
+          h += `<text x="${CX}" y="${CY - lOff}" text-anchor="middle" dominant-baseline="middle" fill="#5a9a5a" font-size="11">N</text>`;
+          h += `<text x="${CX + lOff}" y="${CY}" text-anchor="middle" dominant-baseline="middle" fill="#5a9a5a" font-size="11">E</text>`;
+          h += `<text x="${CX}" y="${CY + lOff}" text-anchor="middle" dominant-baseline="middle" fill="#5a9a5a" font-size="11">S</text>`;
+          h += `<text x="${CX - lOff}" y="${CY}" text-anchor="middle" dominant-baseline="middle" fill="#5a9a5a" font-size="11">W</text>`;
+
+          // Ring elevation labels
+          h += `<text x="${CX + elR(30) + 2}" y="${CY}" dominant-baseline="middle" fill="#283a28" font-size="8">60°</text>`;
+          h += `<text x="${CX + elR(60) + 2}" y="${CY}" dominant-baseline="middle" fill="#283a28" font-size="8">30°</text>`;
+
+          // Satellites
+          for (const s of sats) {
+            if (s.elevation == null || s.azimuth == null) continue;
+            const r = elR(s.elevation);
+            const az = (s.azimuth * Math.PI) / 180;
+            const sx = (CX + r * Math.sin(az)).toFixed(1);
+            const sy = (CY - r * Math.cos(az)).toFixed(1);
+            const dr = dotR(s.cn0);
+            const col = colorOf(s.constellation, s.tracked);
+            const cn0Str = s.cn0 != null ? s.cn0.toFixed(1) : '—';
+            const tip = `${s.sv_id} · ${s.constellation} · ${cn0Str} dBHz · el ${s.elevation.toFixed(1)}° · az ${s.azimuth.toFixed(1)}°`;
+            if (s.tracked) {
+              h += `<circle cx="${sx}" cy="${sy}" r="${dr}" fill="${col}" fill-opacity="0.9"><title>${tip}</title></circle>`;
+            } else {
+              h += `<circle cx="${sx}" cy="${sy}" r="${dr}" fill="none" stroke="${col}" stroke-width="1.2"><title>${tip}</title></circle>`;
+            }
+          }
+
+          document.getElementById('sky-svg').innerHTML = h;
+        }
+
+        function renderCn0Chart(sats) {
+          const canvas = document.getElementById('cn0-canvas');
+          const ctx = canvas.getContext('2d');
+          const CONST_ORDER = ['GPS', 'Galileo', 'GLONASS', 'BDS'];
+
+          const sorted = [...sats]
+            .filter((s) => s.cn0 != null)
+            .sort((a, b) => {
+              const ia = CONST_ORDER.indexOf(a.constellation);
+              const ib = CONST_ORDER.indexOf(b.constellation);
+              const da = ia < 0 ? 99 : ia;
+              const db = ib < 0 ? 99 : ib;
+              return da !== db ? da - db : b.cn0 - a.cn0;
+            });
+
+          const ROW = 14,
+            ML = 52,
+            MT = 18,
+            MR = 8,
+            MB = 4;
+          const PX = 5; // pixels per dBHz
+
+          canvas.width = ML + 60 * PX + MR;
+          canvas.height = Math.max(60, MT + sorted.length * ROW + MB);
+
+          ctx.fillStyle = '#020a02';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Grid lines + axis labels
+          ctx.strokeStyle = '#1a3a1a';
+          ctx.lineWidth = 0.5;
+          ctx.font = '8px IBM Plex Mono, monospace';
+          ctx.fillStyle = '#334a33';
+          ctx.textAlign = 'center';
+          for (const v of [0, 10, 20, 30, 40, 50, 60]) {
+            const x = ML + v * PX;
+            ctx.beginPath();
+            ctx.moveTo(x, MT - 10);
+            ctx.lineTo(x, MT + sorted.length * ROW);
+            ctx.stroke();
+            ctx.fillText(String(v), x, MT - 3);
+          }
+
+          // Bars + SV labels
+          sorted.forEach((s, i) => {
+            const y = MT + i * ROW;
+            const col = colorOf(s.constellation, s.tracked);
+            ctx.globalAlpha = s.tracked ? 0.85 : 0.4;
+            ctx.fillStyle = col;
+            ctx.fillRect(ML, y + 2, s.cn0 * PX, ROW - 4);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#7ab87a';
+            ctx.textAlign = 'right';
+            ctx.fillText(s.sv_id, ML - 3, y + ROW - 4);
+          });
+        }
+
+        let lastGen = null;
+
+        function updateStatus() {
+          if (!lastGen) return;
+          const age = Date.now() - new Date(lastGen).getTime();
+          const ageSec = Math.round(age / 1000);
+          document.getElementById('last-updated').textContent = `last updated: ${ageSec}s ago`;
+          document.getElementById('station-offline').style.display = age > OFFLINE_MS ? '' : 'none';
+        }
+
+        function renderAll(data) {
+          const sats = data.satellites || [];
+          lastGen = data.generated_at;
+          showDataView();
+          renderSkyPlot(sats);
+          renderCn0Chart(sats);
+
+          // Summary line
+          const counts = { GPS: 0, Galileo: 0, GLONASS: 0, BDS: 0 };
+          let total = 0;
+          for (const s of sats) {
+            if (!s.tracked) continue;
+            total++;
+            if (Object.prototype.hasOwnProperty.call(counts, s.constellation)) {
+              counts[s.constellation]++;
+            }
+          }
+          document.getElementById('sat-summary').textContent =
+            `Tracking ${total} — GPS: ${counts.GPS}  GAL: ${counts.Galileo}  GLO: ${counts.GLONASS}  BDS: ${counts.BDS}`;
+
+          updateStatus();
+        }
+
+        async function poll() {
+          try {
+            const data = await fetchLive();
+            if (data) renderAll(data);
+          } catch (err) {
+            console.error('[gnss-station]', err);
+          }
+        }
+
+        const token = getToken();
+        if (!token) {
+          showAuthGate();
+        } else {
+          poll();
+          setInterval(poll, POLL_MS);
+          setInterval(updateStatus, 10_000);
+        }
+      })();
+    </script>
+  </body>
+</html>
