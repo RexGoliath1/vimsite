@@ -1,0 +1,37 @@
+name: Auto-format content
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "posts/**/*.html"
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run Prettier on content files
+        run: npx prettier --write 'index.html' 'posts/**/*.html'
+
+      - name: Commit if changed
+        run: |
+          git diff --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html 'posts/**/*.html'
+          git commit -m "style: auto-format content HTML
+
+          Triggered by content push to main.
+
+          Co-Authored-By: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          git push
