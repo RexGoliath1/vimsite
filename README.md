@@ -1,3 +1,5 @@
+> **Built with [Claude Code](https://claude.ai/claude-code)** — this repository is primarily AI-generated with human review.
+
 # steven's log — blog structure
 
 ## Overview
