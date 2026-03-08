@@ -1,0 +1,55 @@
+# Standard .claudeignore for all repos
+# Prevents Claude from wasting tokens on irrelevant files
+
+# Data files
+data/
+*.csv
+*.csv.gz
+*.parquet
+*.jsonl
+*.json.gz
+
+# Model weights and checkpoints
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.bin
+
+# Logs and experiment tracking
+logs/
+wandb/
+mlruns/
+*.log
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+__pycache__/
+node_modules/
+.next/
+target/
+
+# Large binary assets
+*.mp4
+*.mov
+*.zip
+*.tar.gz
+*.blend1
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+
+# Virtual environments
+.venv/
+venv/
+.tox/
+
+# Coverage reports
+htmlcov/
+.coverage
+coverage.xml
