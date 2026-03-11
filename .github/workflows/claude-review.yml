@@ -132,7 +132,7 @@ jobs:
             If the code is clean, return an empty findings array with summary "LGTM — no issues found."
           claude_args: |
             --model claude-sonnet-4-6
-            --max-turns 15
+            --max-turns 30
             --allowedTools "Bash(gh pr diff *),Bash(gh pr view *),Bash(gh api *),Read,Glob,Grep"
             --json-schema '{"type":"object","properties":{"findings":{"type":"array","items":{"type":"object","properties":{"file":{"type":"string","description":"File path relative to repo root"},"line":{"type":"integer","description":"Line number, 0 if not applicable"},"severity":{"type":"string","enum":["BUG","CONVENTION_VIOLATION","SUGGESTION"]},"active_or_timebomb":{"type":"string","enum":["active","timebomb","na"],"description":"For BUGs only: active means broken now, timebomb means will break when stub activated"},"title":{"type":"string","description":"Short title, under 80 chars"},"description":{"type":"string","description":"Full reasoning, cite code, explain why this is a problem"},"code_snippet":{"type":"string","description":"The relevant code being cited"}},"required":["file","line","severity","title","description"]}},"summary":{"type":"string","description":"One-line summary of overall code quality"},"conventions_checked":{"type":"array","items":{"type":"string"},"description":"List of CLAUDE.md conventions identified in Step 2.75"},"files_read":{"type":"array","items":{"type":"string"},"description":"List of files read via Read tool before reviewing"}},"required":["findings","summary","conventions_checked","files_read"]}'
 
@@ -201,7 +201,7 @@ jobs:
             - If the finding is technically correct but practically irrelevant (dead code path, impossible input in practice), mark REJECTED with reason.
           claude_args: |
             --model claude-opus-4-6
-            --max-turns 10
+            --max-turns 30
             --allowedTools "Bash(gh pr diff *),Bash(gh pr view *),Read,Glob,Grep"
             --json-schema '{"type":"object","properties":{"verifications":{"type":"array","items":{"type":"object","properties":{"original_title":{"type":"string","description":"Title from the original finding"},"verdict":{"type":"string","enum":["CONFIRMED","REJECTED"]},"reasoning":{"type":"string","description":"One-sentence justification citing specific code"},"file_read":{"type":"string","description":"File path that was read to verify"}},"required":["original_title","verdict","reasoning"]}},"confirmed_count":{"type":"integer"},"rejected_count":{"type":"integer"}},"required":["verifications","confirmed_count","rejected_count"]}'
 
