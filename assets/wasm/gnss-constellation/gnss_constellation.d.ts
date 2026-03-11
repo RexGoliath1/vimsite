@@ -7,6 +7,13 @@
  */
 export function get_camera_vp_matrix(): Float64Array;
 
+/**
+ * Returns DOP metrics for the current sim state as a plain JS object:
+ * `{ combined: {gdop,pdop,hdop,vdop,tdop,n_sats}, by_constellation: [{idx,gdop,pdop,hdop,vdop,n_sats},...] }`
+ * Call from JS at 1 Hz. Returns null if no satellite data is loaded.
+ */
+export function get_dop(): any;
+
 export function get_sim_epoch(): number;
 
 /**
@@ -44,6 +51,8 @@ export function set_show_elev_cone(on: boolean): void;
 
 export function set_show_inc_rings(on: boolean): void;
 
+export function set_show_los_lines(on: boolean): void;
+
 export function set_sim_epoch(unix_s: number): void;
 
 export function set_time_warp(v: number): void;
@@ -59,6 +68,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly get_camera_vp_matrix: () => [number, number];
+    readonly get_dop: () => any;
     readonly get_sim_epoch: () => number;
     readonly get_sky_data: () => any;
     readonly get_tle_count: () => number;
@@ -73,12 +83,14 @@ export interface InitOutput {
     readonly set_show_eci_axes: (a: number) => void;
     readonly set_show_elev_cone: (a: number) => void;
     readonly set_show_inc_rings: (a: number) => void;
+    readonly set_show_los_lines: (a: number) => void;
     readonly set_sim_epoch: (a: number) => void;
     readonly set_time_warp: (a: number) => void;
     readonly set_visible_only: (a: number) => void;
     readonly start: () => void;
     readonly toggle_constellation: (a: number, b: number) => void;
     readonly wasm_bindgen__closure__destroy__h9ce5017ecb4fb027: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__ha269213a20b3fe57: (a: number, b: number) => void;
     readonly wasm_bindgen__closure__destroy__h5a7df7e0ff64d37c: (a: number, b: number) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_1: (a: number, b: number, c: any) => void;

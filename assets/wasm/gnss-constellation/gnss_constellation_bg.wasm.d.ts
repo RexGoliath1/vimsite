@@ -2,6 +2,7 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const get_camera_vp_matrix: () => [number, number];
+export const get_dop: () => any;
 export const get_sim_epoch: () => number;
 export const get_sky_data: () => any;
 export const get_tle_count: () => number;
@@ -16,12 +17,14 @@ export const set_show_ecef_axes: (a: number) => void;
 export const set_show_eci_axes: (a: number) => void;
 export const set_show_elev_cone: (a: number) => void;
 export const set_show_inc_rings: (a: number) => void;
+export const set_show_los_lines: (a: number) => void;
 export const set_sim_epoch: (a: number) => void;
 export const set_time_warp: (a: number) => void;
 export const set_visible_only: (a: number) => void;
 export const start: () => void;
 export const toggle_constellation: (a: number, b: number) => void;
 export const wasm_bindgen__closure__destroy__h9ce5017ecb4fb027: (a: number, b: number) => void;
+export const wasm_bindgen__closure__destroy__ha269213a20b3fe57: (a: number, b: number) => void;
 export const wasm_bindgen__closure__destroy__h5a7df7e0ff64d37c: (a: number, b: number) => void;
 export const wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__h0c5132cdd4deee4b_1: (a: number, b: number, c: any) => void;
