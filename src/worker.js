@@ -19,9 +19,10 @@
 const CELESTRAK_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=gnss&FORMAT=json';
 const TLE_CACHE_TTL_SECONDS = 12 * 60 * 60; // 12 hours
 
-// Validate a GitHub PAT by checking read access to this repo.
-// Returns true if the token is valid, false otherwise.
-const GITHUB_VALIDATE_URL = 'https://api.github.com/repos/RexGoliath1/vimsite/git/ref/heads/main';
+// Validate a GitHub PAT by checking the authenticated user's identity.
+// Only users in ALLOWED_USERS may access protected endpoints.
+const GITHUB_USER_URL = 'https://api.github.com/user';
+const ALLOWED_USERS = ['RexGoliath1'];
 
 export default {
   async fetch(request, env, ctx) {
@@ -124,7 +125,7 @@ async function handleGnssLive(request, env) {
   // Fetch live data from R2.
   const obj = await env.GNSS_DATA.get('constellation.json');
   if (!obj) {
-    return jsonError(403, 'Data not available');
+    return jsonError(404, 'Data not available');
   }
 
   const body = await obj.text();
@@ -138,13 +139,15 @@ async function handleGnssLive(request, env) {
 
 async function validateGitHubPat(authHeader) {
   try {
-    const res = await fetch(GITHUB_VALIDATE_URL, {
+    const res = await fetch(GITHUB_USER_URL, {
       headers: {
         Authorization: authHeader,
         'User-Agent': 'vimsite-worker',
       },
     });
-    return res.status === 200;
+    if (res.status !== 200) return false;
+    const user = await res.json();
+    return ALLOWED_USERS.includes(user.login);
   } catch {
     return false;
   }

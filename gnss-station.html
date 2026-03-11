@@ -161,7 +161,11 @@
 
         const TOKEN_KEY = 'vimsite_token';
         const POLL_MS = 60_000;
+        const STATUS_REFRESH_MS = 10_000;
         const OFFLINE_MS = 5 * 60 * 1000;
+        const MAX_CN0_DBHZ = 60;
+        const MIN_CANVAS_HEIGHT = 60;
+        const UNKNOWN_CONST_ORDER = 99;
 
         // Constellation colors — GPS=blue, Galileo=orange, GLONASS=green, BDS=red
         const COLORS = {
@@ -215,9 +219,16 @@
           function elR(el) {
             return ((90 - el) / 90) * MAX_R;
           }
+          const DOT_R_MIN = 3; // minimum dot radius (px)
+          const DOT_R_EXTRA = 6; // additional radius at max C/N0
+          const DOT_CN0_FLOOR = 30; // C/N0 below this gets min radius (dBHz)
+          const DOT_CN0_RANGE = 25; // C/N0 range over which radius scales (dBHz)
           function dotR(cn0) {
-            if (cn0 == null) return 3;
-            return 3 + Math.max(0, Math.min(1, (cn0 - 30) / 25)) * 6;
+            if (cn0 == null) return DOT_R_MIN;
+            return (
+              DOT_R_MIN +
+              Math.max(0, Math.min(1, (cn0 - DOT_CN0_FLOOR) / DOT_CN0_RANGE)) * DOT_R_EXTRA
+            );
           }
 
           let h = '';
@@ -233,16 +244,17 @@
           h += `<line x1="${CX}" y1="${CY - MAX_R}" x2="${CX}" y2="${CY + MAX_R}" stroke="#122012" stroke-width="0.5"/>`;
           h += `<line x1="${CX - MAX_R}" y1="${CY}" x2="${CX + MAX_R}" y2="${CY}" stroke="#122012" stroke-width="0.5"/>`;
 
-          // Cardinal labels — north-up
-          const lOff = MAX_R + 13;
+          // Cardinal labels — north-up (offset keeps text inside 280×280 viewBox)
+          const LABEL_OFFSET = 10;
+          const lOff = MAX_R + LABEL_OFFSET;
           h += `<text x="${CX}" y="${CY - lOff}" text-anchor="middle" dominant-baseline="middle" fill="#5a9a5a" font-size="11">N</text>`;
           h += `<text x="${CX + lOff}" y="${CY}" text-anchor="middle" dominant-baseline="middle" fill="#5a9a5a" font-size="11">E</text>`;
           h += `<text x="${CX}" y="${CY + lOff}" text-anchor="middle" dominant-baseline="middle" fill="#5a9a5a" font-size="11">S</text>`;
           h += `<text x="${CX - lOff}" y="${CY}" text-anchor="middle" dominant-baseline="middle" fill="#5a9a5a" font-size="11">W</text>`;
 
-          // Ring elevation labels
-          h += `<text x="${CX + elR(30) + 2}" y="${CY}" dominant-baseline="middle" fill="#283a28" font-size="8">60°</text>`;
-          h += `<text x="${CX + elR(60) + 2}" y="${CY}" dominant-baseline="middle" fill="#283a28" font-size="8">30°</text>`;
+          // Ring elevation labels (label matches the elevation of the ring it's on)
+          h += `<text x="${CX + elR(30) + 2}" y="${CY}" dominant-baseline="middle" fill="#283a28" font-size="8">30°</text>`;
+          h += `<text x="${CX + elR(60) + 2}" y="${CY}" dominant-baseline="middle" fill="#283a28" font-size="8">60°</text>`;
 
           // Satellites
           for (const s of sats) {
@@ -275,8 +287,8 @@
             .sort((a, b) => {
               const ia = CONST_ORDER.indexOf(a.constellation);
               const ib = CONST_ORDER.indexOf(b.constellation);
-              const da = ia < 0 ? 99 : ia;
-              const db = ib < 0 ? 99 : ib;
+              const da = ia < 0 ? UNKNOWN_CONST_ORDER : ia;
+              const db = ib < 0 ? UNKNOWN_CONST_ORDER : ib;
               return da !== db ? da - db : b.cn0 - a.cn0;
             });
 
@@ -287,8 +299,8 @@
             MB = 4;
           const PX = 5; // pixels per dBHz
 
-          canvas.width = ML + 60 * PX + MR;
-          canvas.height = Math.max(60, MT + sorted.length * ROW + MB);
+          canvas.width = ML + MAX_CN0_DBHZ * PX + MR;
+          canvas.height = Math.max(MIN_CANVAS_HEIGHT, MT + sorted.length * ROW + MB);
 
           ctx.fillStyle = '#020a02';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -299,7 +311,8 @@
           ctx.font = '8px IBM Plex Mono, monospace';
           ctx.fillStyle = '#334a33';
           ctx.textAlign = 'center';
-          for (const v of [0, 10, 20, 30, 40, 50, 60]) {
+          const CN0_TICKS = Array.from({ length: MAX_CN0_DBHZ / 10 + 1 }, (_, i) => i * 10);
+          for (const v of CN0_TICKS) {
             const x = ML + v * PX;
             ctx.beginPath();
             ctx.moveTo(x, MT - 10);
@@ -314,7 +327,7 @@
             const col = colorOf(s.constellation, s.tracked);
             ctx.globalAlpha = s.tracked ? 0.85 : 0.4;
             ctx.fillStyle = col;
-            ctx.fillRect(ML, y + 2, s.cn0 * PX, ROW - 4);
+            ctx.fillRect(ML, y + 2, Math.min(s.cn0, MAX_CN0_DBHZ) * PX, ROW - 4);
             ctx.globalAlpha = 1;
             ctx.fillStyle = '#7ab87a';
             ctx.textAlign = 'right';
@@ -370,7 +383,7 @@
         } else {
           poll();
           setInterval(poll, POLL_MS);
-          setInterval(updateStatus, 10_000);
+          setInterval(updateStatus, STATUS_REFRESH_MS);
         }
       })();
     </script>
