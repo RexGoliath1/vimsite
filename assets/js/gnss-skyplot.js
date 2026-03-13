@@ -45,7 +45,16 @@ export function initSkyPlot(wasmModule) {
   }
 
   const dpr = window.devicePixelRatio || 1;
-  const logicalSize = 260;
+
+  // Responsive sizing: read container width, clamp to 120–260px
+  function getPlotSize() {
+    const container = canvas.parentElement;
+    if (!container) return 260;
+    const available = container.clientWidth - 12; // subtract padding
+    return Math.max(120, Math.min(260, available));
+  }
+
+  let logicalSize = getPlotSize();
 
   // Scale canvas backing store for crisp rendering on HiDPI displays
   canvas.width = logicalSize * dpr;
@@ -61,6 +70,21 @@ export function initSkyPlot(wasmModule) {
 
   // Scale all drawing commands by dpr so logical coords work naturally
   ctx.scale(dpr, dpr);
+
+  // Re-scale canvas when container resizes (responsive panels)
+  function resizePlot() {
+    const newSize = getPlotSize();
+    if (newSize === logicalSize) return;
+    logicalSize = newSize;
+    canvas.width = logicalSize * dpr;
+    canvas.height = logicalSize * dpr;
+    canvas.style.width = logicalSize + 'px';
+    canvas.style.height = logicalSize + 'px';
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+  }
+
+  new ResizeObserver(resizePlot).observe(canvas.parentElement);
 
   // Clear trail history when simulation time is reset
   document.addEventListener('gnss:time-reset', () => {
@@ -87,7 +111,10 @@ export function initSkyPlot(wasmModule) {
         : 1;
       const _dynamicMax = Math.max(
         3,
-        Math.min(TRAIL_MAX_POINTS, Math.round(1800 / ((RENDER_INTERVAL_MS / 1000) * _warpMultiplier))),
+        Math.min(
+          TRAIL_MAX_POINTS,
+          Math.round(1800 / ((RENDER_INTERVAL_MS / 1000) * _warpMultiplier)),
+        ),
       );
 
       // Update trail history

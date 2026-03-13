@@ -395,6 +395,161 @@
       .gnss-footer-note a:hover {
         color: var(--fg-dim);
       }
+
+      /* ── Responsive: landscape mobile & narrow viewports ─────────────── */
+      @media (max-width: 900px) {
+        #left-panel {
+          width: 170px;
+          padding: 4px 6px;
+          font-size: 0.75rem;
+        }
+        #hud-panel {
+          width: 210px;
+          padding: 4px 8px;
+          font-size: 0.75rem;
+        }
+        .legend-name {
+          font-size: 0.8rem;
+        }
+        #hud-panel button {
+          min-height: 44px;
+          padding: 8px 10px;
+        }
+        .hud-time-btns button {
+          min-height: 44px;
+          padding: 10px 0;
+        }
+        .legend-item {
+          min-height: 36px;
+          padding: 4px 3px;
+        }
+        .legend-item input[type='checkbox'] {
+          width: 18px;
+          height: 18px;
+        }
+        .hud-vis-only input[type='checkbox'] {
+          width: 18px;
+          height: 18px;
+        }
+        .hud-toggle {
+          min-height: 36px;
+          padding: 4px 0;
+        }
+        .hud-toggle input[type='checkbox'] {
+          width: 18px;
+          height: 18px;
+        }
+        .hud-location input[type='number'] {
+          min-height: 44px;
+          padding: 6px 4px;
+          width: 70px;
+        }
+        #time-scrubber {
+          min-height: 44px;
+          padding: 6px 4px;
+        }
+        #sky-plot-canvas {
+          width: 100%;
+          height: auto;
+          aspect-ratio: 1;
+          max-width: 260px;
+        }
+      }
+
+      /* Landscape phone: collapsed header, tighter layout */
+      @media (max-width: 900px) and (max-height: 500px) {
+        header {
+          padding: 2px var(--gutter) 0;
+        }
+        main > h1 {
+          display: none;
+        }
+        #prop-mode {
+          display: none;
+        }
+        .gnss-viz-container {
+          height: calc(100vh - 24px);
+          height: calc(100dvh - 24px);
+        }
+        body {
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
+        .hud-legend {
+          display: flex;
+          flex-wrap: wrap;
+        }
+        .legend-item {
+          width: 48%;
+          min-height: 32px;
+        }
+      }
+
+      /* ── Responsive: portrait mobile (stretch goal) ──────────────────── */
+      @media (max-width: 500px) {
+        body {
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
+        main > h1 {
+          font-size: 1rem;
+          padding: 0 var(--gutter) 0.25rem;
+        }
+        #prop-mode {
+          font-size: 0.65rem;
+          margin-bottom: 0.25rem;
+        }
+        .gnss-viz-container {
+          position: static;
+          display: flex;
+          flex-direction: column;
+          height: auto;
+          min-height: 100vh;
+          min-height: 100dvh;
+          overflow: visible;
+        }
+        .gnss-canvas-wrap {
+          position: static;
+          height: 50vh;
+          height: 50dvh;
+          min-height: 250px;
+          order: 1;
+        }
+        #gnss-canvas {
+          height: 100%;
+        }
+        #left-panel {
+          position: static;
+          width: 100%;
+          height: auto;
+          max-height: none;
+          overflow-y: visible;
+          order: 2;
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+        }
+        #hud-panel {
+          position: static;
+          width: 100%;
+          height: auto;
+          max-height: none;
+          overflow-y: visible;
+          order: 3;
+          border-left: none;
+          border-top: 1px solid var(--border);
+        }
+        #sky-plot-canvas {
+          max-width: 300px;
+          margin: 0 auto;
+        }
+        .hud-legend {
+          display: flex;
+          flex-wrap: wrap;
+        }
+        .legend-item {
+          width: 48%;
+        }
+      }
     </style>
   </head>
   <body>
