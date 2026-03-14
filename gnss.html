@@ -536,6 +536,9 @@
           overflow-x: hidden;
           scrollbar-width: none;
           -webkit-overflow-scrolling: touch;
+          /* Fade gradient at bottom as scroll hint */
+          mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
+          -webkit-mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
         }
         #hud-panel::-webkit-scrollbar {
           display: none;
