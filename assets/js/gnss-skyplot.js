@@ -82,6 +82,8 @@ export function initSkyPlot(wasmModule) {
     canvas.style.height = logicalSize + 'px';
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
+    // Force immediate re-render so canvas doesn't blank for up to 500ms
+    _lastRenderTime = 0;
   }
 
   new ResizeObserver(resizePlot).observe(canvas.parentElement);
