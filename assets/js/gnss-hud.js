@@ -412,12 +412,19 @@ function setPropMode(mode, hudText, bannerText) {
   const statusEl = document.getElementById('tle-status');
   const banner = document.getElementById('prop-mode');
   const bannerText_ = document.getElementById('prop-mode-text');
+  const inlineBanner = document.getElementById('prop-mode-inline');
   if (statusEl) {
     statusEl.textContent = hudText;
     statusEl.dataset.mode = mode;
   }
   if (banner) banner.dataset.mode = mode;
   if (bannerText_) bannerText_.textContent = bannerText;
+  // Sync inline mobile-landscape status badge
+  if (inlineBanner) {
+    inlineBanner.textContent = hudText;
+    inlineBanner.style.color =
+      mode === 'live' ? '#39ff14' : mode === 'loading' ? '#ffab40' : '#ff4444';
+  }
 }
 
 async function fetchAndInjectTles() {
