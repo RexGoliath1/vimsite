@@ -461,6 +461,9 @@
         header {
           padding: 2px var(--gutter) 0;
         }
+        header nav {
+          display: none;
+        }
         main > h1 {
           display: none;
         }
@@ -468,12 +471,37 @@
           display: none;
         }
         .gnss-viz-container {
-          height: calc(100vh - 24px);
-          height: calc(100dvh - 24px);
+          height: 100vh;
+          height: 100dvh;
         }
         body {
-          overflow-x: hidden;
+          overflow: hidden;
+        }
+        /* ── Left panel: independent scroll, compact sky plot ── */
+        #left-panel {
+          width: 150px;
+          height: 100%;
           overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        #sky-plot-canvas {
+          max-width: 130px;
+        }
+        #prn-list {
+          max-height: 120px;
+          overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: #1a3a1a transparent;
+        }
+        #prn-list-panel .hud-section-label {
+          font-size: 0.6rem;
+        }
+        /* ── Right panel: independent scroll ── */
+        #hud-panel {
+          width: 190px;
+          height: 100%;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
         .hud-legend {
           display: flex;
@@ -481,7 +509,15 @@
         }
         .legend-item {
           width: 48%;
-          min-height: 32px;
+          min-height: 28px;
+          padding: 2px 2px;
+        }
+        .hud-section-label {
+          margin-top: 4px;
+          font-size: 0.6rem;
+        }
+        .hud-toggle {
+          font-size: 0.68rem;
         }
       }
 
