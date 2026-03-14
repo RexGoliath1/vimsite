@@ -45,7 +45,16 @@ export function initSkyPlot(wasmModule) {
   }
 
   const dpr = window.devicePixelRatio || 1;
-  const logicalSize = 260;
+
+  // Responsive sizing: read container width, clamp to 120–260px
+  function getPlotSize() {
+    const container = canvas.parentElement;
+    if (!container) return 260;
+    const available = container.clientWidth - 12; // subtract padding
+    return Math.max(120, Math.min(260, available));
+  }
+
+  let logicalSize = getPlotSize();
 
   // Scale canvas backing store for crisp rendering on HiDPI displays
   canvas.width = logicalSize * dpr;
@@ -61,6 +70,23 @@ export function initSkyPlot(wasmModule) {
 
   // Scale all drawing commands by dpr so logical coords work naturally
   ctx.scale(dpr, dpr);
+
+  // Re-scale canvas when container resizes (responsive panels)
+  function resizePlot() {
+    const newSize = getPlotSize();
+    if (newSize === logicalSize) return;
+    logicalSize = newSize;
+    canvas.width = logicalSize * dpr;
+    canvas.height = logicalSize * dpr;
+    canvas.style.width = logicalSize + 'px';
+    canvas.style.height = logicalSize + 'px';
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(dpr, dpr);
+    // Force immediate re-render so canvas doesn't blank for up to 500ms
+    _lastRenderTime = 0;
+  }
+
+  new ResizeObserver(resizePlot).observe(canvas.parentElement);
 
   // Clear trail history when simulation time is reset
   document.addEventListener('gnss:time-reset', () => {
@@ -87,7 +113,10 @@ export function initSkyPlot(wasmModule) {
         : 1;
       const _dynamicMax = Math.max(
         3,
-        Math.min(TRAIL_MAX_POINTS, Math.round(1800 / ((RENDER_INTERVAL_MS / 1000) * _warpMultiplier))),
+        Math.min(
+          TRAIL_MAX_POINTS,
+          Math.round(1800 / ((RENDER_INTERVAL_MS / 1000) * _warpMultiplier)),
+        ),
       );
 
       // Update trail history
@@ -156,8 +185,10 @@ export function renderSkyPlot(
 ) {
   const cx = width / 2;
   const cy = height / 2;
+  // Scale factor: 1.0 at reference size (260px), smaller on compact canvases
+  const scaleFactor = Math.min(width, height) / 260;
   // Leave a small margin so labels at edge aren't clipped
-  const margin = 14;
+  const margin = Math.round(14 * scaleFactor);
   const plotRadius = Math.min(cx, cy) - margin;
 
   // --- Background ---
@@ -165,7 +196,8 @@ export function renderSkyPlot(
   ctx.fillRect(0, 0, width, height);
 
   // --- Panel title ---
-  ctx.font = `10px ${FONT_FAMILY}`;
+  const titleFontSize = Math.round(10 * scaleFactor);
+  ctx.font = `${titleFontSize}px ${FONT_FAMILY}`;
   ctx.fillStyle = COLORS.panelTitle;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
@@ -216,7 +248,8 @@ export function renderSkyPlot(
       const labelX = cx + r * Math.sin(labelAngleRad);
       const labelY = cy - r * Math.cos(labelAngleRad);
 
-      ctx.font = `9px ${FONT_FAMILY}`;
+      const ringFontSize = Math.round(9 * scaleFactor);
+      ctx.font = `${ringFontSize}px ${FONT_FAMILY}`;
       ctx.fillStyle = COLORS.ringLabel;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -232,7 +265,8 @@ export function renderSkyPlot(
     const labelX = cx + r * Math.sin(labelAngleRad) * 0.88;
     const labelY = cy - r * Math.cos(labelAngleRad) * 0.88;
 
-    ctx.font = `9px ${FONT_FAMILY}`;
+    const ringFontSize0 = Math.round(9 * scaleFactor);
+    ctx.font = `${ringFontSize0}px ${FONT_FAMILY}`;
     ctx.fillStyle = COLORS.ringLabel;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -242,11 +276,11 @@ export function renderSkyPlot(
   // --- Zenith dot ---
   ctx.fillStyle = COLORS.zenith;
   ctx.beginPath();
-  ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+  ctx.arc(cx, cy, Math.max(1, 2 * scaleFactor), 0, Math.PI * 2);
   ctx.fill();
 
   // --- Compass labels N/S/E/W ---
-  const compassOffset = plotRadius + 10;
+  const compassOffset = plotRadius + Math.round(10 * scaleFactor);
   const compassPositions = [
     { label: 'N', dx: 0, dy: -1 },
     { label: 'S', dx: 0, dy: 1 },
@@ -254,7 +288,8 @@ export function renderSkyPlot(
     { label: 'W', dx: -1, dy: 0 },
   ];
 
-  ctx.font = `10px ${FONT_FAMILY}`;
+  const compassFontSize = Math.round(10 * scaleFactor);
+  ctx.font = `${compassFontSize}px ${FONT_FAMILY}`;
   ctx.fillStyle = COLORS.compassLabel;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -281,7 +316,7 @@ export function renderSkyPlot(
         ctx.moveTo(cx + p0.nx * plotRadius, cy - p0.ny * plotRadius);
         ctx.lineTo(cx + p1.nx * plotRadius, cy - p1.ny * plotRadius);
         ctx.strokeStyle = `rgba(${p1.r},${p1.g},${p1.b},${alpha.toFixed(3)})`;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Math.max(0.5, 1.5 * scaleFactor);
         ctx.stroke();
       }
     }
@@ -306,10 +341,10 @@ export function renderSkyPlot(
     // C/N0 signal quality factor (0.0 = weakest, 1.0 = strongest)
     const cn0Factor = sat.c_n0 != null ? Math.min(1, Math.max(0, (sat.c_n0 - 20) / 35)) : 1.0;
 
-    // Dot radius scales with signal quality: 3–6px
-    const dotRadius = 3 + cn0Factor * 3;
+    // Dot radius scales with signal quality and canvas size
+    const dotRadius = (3 + cn0Factor * 3) * scaleFactor;
     // Glow ring radius stays proportional
-    const glowRadius = dotRadius + 3;
+    const glowRadius = dotRadius + 3 * scaleFactor;
 
     const satColor = `rgb(${r},${g},${b})`;
     const satColorDim = `rgba(${r},${g},${b},0.4)`;
@@ -319,7 +354,7 @@ export function renderSkyPlot(
     ctx.beginPath();
     ctx.arc(sx, sy, glowRadius, 0, Math.PI * 2);
     ctx.strokeStyle = satColorDim;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = Math.max(0.5, 1.5 * scaleFactor);
     ctx.stroke();
 
     // Filled dot
@@ -328,21 +363,24 @@ export function renderSkyPlot(
     ctx.fillStyle = satColor;
     ctx.fill();
 
-    // Satellite name label (right of dot, 7px)
-    ctx.font = `7px ${FONT_FAMILY}`;
+    // Satellite name label (right of dot, scaled)
+    const satFontSize = Math.max(5, Math.round(7 * scaleFactor));
+    ctx.font = `${satFontSize}px ${FONT_FAMILY}`;
     ctx.fillStyle = satLabelColor;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
     const label = satShortLabel(name, sat.constellation, _si);
-    ctx.fillText(label, sx + glowRadius + 2, sy - 3);
+    const labelOffset = glowRadius + 2 * scaleFactor;
+    ctx.fillText(label, sx + labelOffset, sy - 3 * scaleFactor);
 
     // C/N0 label below the name label
     if (sat.c_n0 != null) {
       const cn0Label = sat.c_n0.toFixed(0) + 'dB';
-      ctx.font = `6px ${FONT_FAMILY}`;
+      const cn0FontSize = Math.max(4, Math.round(6 * scaleFactor));
+      ctx.font = `${cn0FontSize}px ${FONT_FAMILY}`;
       ctx.fillStyle = `rgba(${r},${g},${b},0.5)`;
-      ctx.fillText(cn0Label, sx + glowRadius + 2, sy + 5);
+      ctx.fillText(cn0Label, sx + labelOffset, sy + 5 * scaleFactor);
     }
   }
 }

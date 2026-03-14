@@ -150,6 +150,23 @@
         color: #39ff14;
       }
 
+      /* Inline TLE status — shown only in mobile landscape where header is hidden */
+      #prop-mode-inline {
+        display: none;
+        position: absolute;
+        top: 2px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 15;
+        font-family: 'IBM Plex Mono', monospace;
+        font-size: 0.6rem;
+        letter-spacing: 0.04em;
+        padding: 1px 8px;
+        pointer-events: none;
+        background: rgba(0, 8, 0, 0.7);
+        border-radius: 2px;
+      }
+
       /* Small utility buttons (↵ location apply, etc.) */
       #hud-panel button {
         background: transparent;
@@ -209,22 +226,26 @@
 
       .hud-warp {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 6px;
+        gap: 4px 6px;
+      }
+
+      .hud-warp > span:first-child {
+        flex-shrink: 0;
       }
 
       #time-warp-slider {
         flex: 1;
-        width: 100%;
         min-width: 0;
         accent-color: #39ff14;
       }
 
       #time-warp-value {
         color: #39ff14;
-        width: 8ch;
-        flex-shrink: 0;
-        font-size: 0.82rem;
+        font-size: 0.78rem;
+        width: 100%;
+        text-align: right;
       }
 
       .hud-divider {
@@ -395,6 +416,230 @@
       .gnss-footer-note a:hover {
         color: var(--fg-dim);
       }
+
+      /* ── Responsive: landscape mobile & narrow viewports ─────────────── */
+      @media (max-width: 900px) {
+        #left-panel {
+          width: 170px;
+          padding: 4px 6px;
+          font-size: 0.75rem;
+        }
+        #hud-panel {
+          width: 210px;
+          padding: 4px 8px;
+          font-size: 0.75rem;
+        }
+        .legend-name {
+          font-size: 0.8rem;
+        }
+        #hud-panel button {
+          min-height: 44px;
+          padding: 8px 10px;
+        }
+        .hud-time-btns button {
+          min-height: 44px;
+          padding: 10px 0;
+        }
+        .legend-item {
+          min-height: 36px;
+          padding: 4px 3px;
+        }
+        .legend-item input[type='checkbox'] {
+          width: 18px;
+          height: 18px;
+        }
+        .hud-vis-only input[type='checkbox'] {
+          width: 18px;
+          height: 18px;
+        }
+        .hud-toggle {
+          min-height: 36px;
+          padding: 4px 0;
+        }
+        .hud-toggle input[type='checkbox'] {
+          width: 18px;
+          height: 18px;
+        }
+        .hud-location input[type='number'] {
+          min-height: 44px;
+          padding: 6px 4px;
+          width: 70px;
+        }
+        #time-scrubber {
+          min-height: 44px;
+          padding: 6px 4px;
+        }
+        #sky-plot-canvas {
+          width: 100%;
+          height: auto;
+          aspect-ratio: 1;
+          max-width: 260px;
+        }
+      }
+
+      /* Landscape phone: collapsed header, tighter layout */
+      @media (max-width: 900px) and (max-height: 500px) {
+        header {
+          padding: 2px var(--gutter) 0;
+        }
+        header nav {
+          display: none;
+        }
+        main > h1 {
+          display: none;
+        }
+        #prop-mode {
+          display: none;
+        }
+        /* Show inline TLE status centered above canvas */
+        #prop-mode-inline {
+          display: block;
+        }
+        .gnss-viz-container {
+          height: 100vh;
+          height: 100dvh;
+        }
+        body {
+          overflow: hidden;
+        }
+        /* ── Left panel: independent scroll, compact sky plot ── */
+        #left-panel {
+          width: 150px;
+          height: 100%;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: none; /* hide scrollbar chrome */
+          -webkit-overflow-scrolling: touch;
+        }
+        #left-panel::-webkit-scrollbar {
+          display: none;
+        }
+        #sky-plot-canvas {
+          max-width: 130px;
+        }
+        #prn-list {
+          max-height: 120px;
+          overflow-y: auto;
+          scrollbar-width: none;
+        }
+        #prn-list::-webkit-scrollbar {
+          display: none;
+        }
+        #prn-list-panel .hud-section-label {
+          font-size: 0.6rem;
+        }
+        /* ── Right panel: independent scroll, no visible scrollbar ── */
+        #hud-panel {
+          width: 190px;
+          height: 100%;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+          /* Fade gradient at bottom as scroll hint */
+          mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
+          -webkit-mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
+        }
+        #hud-panel::-webkit-scrollbar {
+          display: none;
+        }
+        .hud-legend {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 2px;
+        }
+        .legend-item {
+          width: 48%;
+          min-height: 32px;
+          padding: 3px 2px;
+          gap: 3px;
+        }
+        .legend-item input[type='checkbox'] {
+          width: 16px;
+          height: 16px;
+        }
+        .legend-name {
+          font-size: 0.7rem;
+        }
+        .hud-section-label {
+          margin-top: 4px;
+          font-size: 0.6rem;
+        }
+        .hud-toggle {
+          font-size: 0.68rem;
+          min-height: 32px;
+        }
+        .hud-toggle input[type='checkbox'] {
+          width: 16px;
+          height: 16px;
+        }
+      }
+
+      /* ── Responsive: portrait mobile (stretch goal) ──────────────────── */
+      @media (max-width: 500px) {
+        body {
+          overflow-x: hidden;
+          overflow-y: auto;
+        }
+        main > h1 {
+          font-size: 1rem;
+          padding: 0 var(--gutter) 0.25rem;
+        }
+        #prop-mode {
+          font-size: 0.65rem;
+          margin-bottom: 0.25rem;
+        }
+        .gnss-viz-container {
+          position: static;
+          display: flex;
+          flex-direction: column;
+          height: auto;
+          min-height: 100vh;
+          min-height: 100dvh;
+          overflow: visible;
+        }
+        .gnss-canvas-wrap {
+          position: static;
+          height: 50vh;
+          height: 50dvh;
+          min-height: 250px;
+          order: 1;
+        }
+        #gnss-canvas {
+          height: 100%;
+        }
+        #left-panel {
+          position: static;
+          width: 100%;
+          height: auto;
+          max-height: none;
+          overflow-y: visible;
+          order: 2;
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+        }
+        #hud-panel {
+          position: static;
+          width: 100%;
+          height: auto;
+          max-height: none;
+          overflow-y: visible;
+          order: 3;
+          border-left: none;
+          border-top: 1px solid var(--border);
+        }
+        #sky-plot-canvas {
+          max-width: 300px;
+          margin: 0 auto;
+        }
+        .hud-legend {
+          display: flex;
+          flex-wrap: wrap;
+        }
+        .legend-item {
+          width: 48%;
+        }
+      }
     </style>
   </head>
   <body>
@@ -432,6 +677,9 @@
           </div>
         </div>
         <!-- /#left-panel -->
+
+        <!-- Mobile-landscape TLE status overlay (hidden on desktop) -->
+        <div id="prop-mode-inline"></div>
 
         <!-- Canvas wrapper keeps axis-label overlay scoped to the canvas area -->
         <div class="gnss-canvas-wrap">
