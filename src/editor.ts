@@ -64,7 +64,7 @@ interface EditorOptions {
   onSave: (result: EditorSaveResult) => Promise<void>;
 }
 
-type PostType = 'spoken' | 'written';
+type PostType = 'spoken' | 'written' | 'policy';
 
 // === IIFE ===
 
@@ -338,7 +338,11 @@ type PostType = 'spoken' | 'written';
     return {
       slug: doc.querySelector('h1')?.textContent ?? '',
       date: doc.querySelector('time')?.getAttribute('datetime') ?? '',
-      type: typeEl?.classList.contains('spoken') ? 'spoken' : 'written',
+      type: typeEl?.classList.contains('spoken')
+        ? 'spoken'
+        : typeEl?.classList.contains('policy')
+          ? 'policy'
+          : 'written',
       content,
       tags: Array.from(doc.querySelectorAll('.tag')).map((t) => t.textContent?.trim() ?? ''),
       prevSlug: prevEl ? (prevEl.getAttribute('href')?.replace('.html', '') ?? null) : null,
@@ -376,7 +380,7 @@ type PostType = 'spoken' | 'written';
     desc: string,
   ): string {
     const day = date.split('-')[2];
-    const ts = type === 'spoken' ? 'spkn' : 'writ';
+    const ts = type === 'spoken' ? 'spkn' : type === 'policy' ? 'plcy' : 'writ';
     const month = MONTHS[+date.split('-')[1]];
     const year = date.split('-')[0];
 
@@ -526,9 +530,13 @@ type PostType = 'spoken' | 'written';
       this.dataset.manual = '1';
     });
 
+    function nextType(t: PostType): PostType {
+      return t === 'spoken' ? 'written' : t === 'written' ? 'policy' : 'spoken';
+    }
+
     // clickable type toggle
     typeEl.addEventListener('click', () => {
-      typeVal = typeVal === 'spoken' ? 'written' : 'spoken';
+      typeVal = nextType(typeVal);
       typeEl.textContent = typeVal;
       typeEl.className = 'editor-type ' + typeVal;
     });
@@ -585,7 +593,7 @@ type PostType = 'spoken' | 'written';
       } else if (cmd === 'q' || cmd === 'q!') {
         cleanup();
       } else if (cmd === 't') {
-        typeVal = typeVal === 'spoken' ? 'written' : 'spoken';
+        typeVal = nextType(typeVal);
         typeEl.textContent = typeVal;
         typeEl.className = 'editor-type ' + typeVal;
         status.textContent = 'type: ' + typeVal;

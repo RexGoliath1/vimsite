@@ -19,6 +19,7 @@
   --tag-bg: #1a2e1a;
   --spoken: #ffab40;
   --written: #80cbc4;
+  --policy: #b39ddb;
   --font: 'IBM Plex Mono', 'Courier New', monospace;
   --max-width: 900px;
   --gutter: 1.5rem;
@@ -217,6 +218,18 @@ header {
   color: #5f9ea0;
 }
 
+.ls-table tbody tr.policy a {
+  color: var(--policy);
+}
+
+.ls-table tbody tr.policy a:hover {
+  color: #d1c4e9;
+}
+
+.ls-table tbody tr.policy .ls-desc {
+  color: #8e79a5;
+}
+
 /* year/month group headers */
 .ls-group-year td {
   color: var(--accent);
@@ -265,6 +278,10 @@ header {
   color: var(--written);
 }
 
+.ls-type.policy {
+  color: var(--policy);
+}
+
 .ls-desc {
   color: var(--fg-dim);
   font-size: 0.75rem;
@@ -304,6 +321,10 @@ header {
 
 .post-type.written {
   color: var(--written);
+}
+
+.post-type.policy {
+  color: var(--policy);
 }
 
 .post-content h1 {
@@ -377,6 +398,40 @@ header {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   margin-bottom: 1rem;
+}
+
+/* voice attribution blocks (policy diary) */
+.voice-spoken {
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+  border-left: 2px solid var(--spoken);
+}
+
+.voice-assisted {
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+  border-left: 2px solid var(--policy);
+}
+
+.voice-label {
+  font-size: 0.75rem;
+  color: var(--fg-dim);
+  margin-bottom: 0.5rem;
+  text-transform: lowercase;
+  letter-spacing: 0.05em;
+}
+
+.policy-header {
+  font-size: 0.8rem;
+  color: var(--policy);
+  margin-bottom: 2rem;
+  letter-spacing: 0.05em;
+}
+
+.post-revision {
+  font-size: 0.75rem;
+  color: var(--fg-dim);
+  margin-left: 0.5rem;
 }
 
 /* viz embed — empty container, loads nothing by default */
@@ -528,6 +583,10 @@ footer {
 
 .editor-type.written {
   color: var(--written);
+}
+
+.editor-type.policy {
+  color: var(--policy);
 }
 
 .editor-fields {
