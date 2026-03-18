@@ -6,6 +6,8 @@
 node_modules/
 
 .lighthouseci/
+.mcp.json
+.screenshots/
 
 # Rust build artifacts
 viz/*/target/

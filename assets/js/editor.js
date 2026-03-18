@@ -169,7 +169,7 @@
       return {
         slug: doc.querySelector("h1")?.textContent ?? "",
         date: doc.querySelector("time")?.getAttribute("datetime") ?? "",
-        type: typeEl?.classList.contains("spoken") ? "spoken" : "written",
+        type: typeEl?.classList.contains("spoken") ? "spoken" : typeEl?.classList.contains("policy") ? "policy" : "written",
         content,
         tags: Array.from(doc.querySelectorAll(".tag")).map((t) => t.textContent?.trim() ?? ""),
         prevSlug: prevEl ? prevEl.getAttribute("href")?.replace(".html", "") ?? null : null,
@@ -192,7 +192,7 @@
     }
     function addToIndex(html, date, type, slug, desc) {
       const day = date.split("-")[2];
-      const ts = type === "spoken" ? "spkn" : "writ";
+      const ts = type === "spoken" ? "spkn" : type === "policy" ? "plcy" : "writ";
       const month = MONTHS[+date.split("-")[1]];
       const year = date.split("-")[0];
       const row = '          <!-- post-row -->\n          <tr class="' + type + '">\n            <td class="ls-date" data-date="' + date + '">' + day + '</td>\n            <td class="ls-type ' + type + '">' + ts + '</td>\n            <td><a href="posts/' + slug + '.html">' + slug + '</a> <span class="ls-desc">\u2014 ' + esc(desc) + "</span></td>\n          </tr>\n          <!-- /post-row -->";
@@ -268,8 +268,11 @@
       document.getElementById("ed-desc").addEventListener("input", function() {
         this.dataset.manual = "1";
       });
+      function nextType(t) {
+        return t === "spoken" ? "written" : t === "written" ? "policy" : "spoken";
+      }
       typeEl.addEventListener("click", () => {
-        typeVal = typeVal === "spoken" ? "written" : "spoken";
+        typeVal = nextType(typeVal);
         typeEl.textContent = typeVal;
         typeEl.className = "editor-type " + typeVal;
       });
@@ -317,7 +320,7 @@
         } else if (cmd === "q" || cmd === "q!") {
           cleanup();
         } else if (cmd === "t") {
-          typeVal = typeVal === "spoken" ? "written" : "spoken";
+          typeVal = nextType(typeVal);
           typeEl.textContent = typeVal;
           typeEl.className = "editor-type " + typeVal;
           status.textContent = "type: " + typeVal;
