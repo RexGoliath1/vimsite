@@ -5,7 +5,7 @@
   "description": "steven's log — spoken words & waypoints",
   "scripts": {
     "build:wasm:gnss": "wasm-pack build viz/gnss-constellation --target web --out-dir ../../assets/wasm/gnss-constellation && rm -f assets/wasm/gnss-constellation/.gitignore",
-    "build": "esbuild src/main.ts --outfile=assets/js/main.js --bundle=false --format=iife --target=es2020 && esbuild src/editor.ts --outfile=assets/js/editor.js --bundle=false --format=iife --target=es2020",
+    "build": "esbuild src/main.ts --outfile=assets/js/main.js --bundle=false --format=iife --target=es2020 && esbuild src/editor.ts --outfile=assets/js/editor.js --bundle=false --format=iife --target=es2020 && esbuild src/courtyard.ts --outfile=assets/js/courtyard.js --bundle=false --format=iife --target=es2020",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/ && stylelint 'assets/css/**/*.css' && tsc --noEmit && node scripts/check-html-scripts.js gnss.html",
     "lint:fix": "eslint src/ --fix && stylelint 'assets/css/**/*.css' --fix",
@@ -14,17 +14,19 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/geojson": "^7946.0.16",
+    "@types/leaflet": "^1.9.21",
     "acorn": "^8.0.0",
     "esbuild": "^0.24.0",
-    "typescript": "^5.7.0",
     "eslint": "^9.0.0",
-    "@eslint/js": "^9.0.0",
-    "typescript-eslint": "^8.0.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.4.0",
     "stylelint": "^16.0.0",
     "stylelint-config-standard": "^37.0.0",
-    "prettier": "^3.4.0",
-    "husky": "^9.0.0",
-    "lint-staged": "^15.0.0"
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.0.0"
   },
   "lint-staged": {
     "src/**/*.ts": [

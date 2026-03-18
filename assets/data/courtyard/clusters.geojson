@@ -1,0 +1,165 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-87.6178, 41.8215],
+              [-87.6175, 41.8215],
+              [-87.6175, 41.822],
+              [-87.6178, 41.822],
+              [-87.6178, 41.8215]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cluster_id": 1,
+        "lot_count": 5,
+        "total_sqft": 15625,
+        "zoning": "RT-4",
+        "tier": "shovel-ready",
+        "addresses": [
+          "4232 S CALUMET AVE",
+          "4234 S CALUMET AVE",
+          "4236 S CALUMET AVE",
+          "4238 S CALUMET AVE",
+          "4240 S CALUMET AVE"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-87.6525, 41.8765],
+              [-87.6522, 41.8765],
+              [-87.6522, 41.877],
+              [-87.6525, 41.877],
+              [-87.6525, 41.8765]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cluster_id": 2,
+        "lot_count": 3,
+        "total_sqft": 9375,
+        "zoning": "RM-5",
+        "tier": "needs-assembly",
+        "addresses": [
+          "1415 N BOSWORTH AVE",
+          "1417 N BOSWORTH AVE",
+          "1419 N BOSWORTH AVE"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-87.7265, 41.8805],
+              [-87.7262, 41.8805],
+              [-87.7262, 41.881],
+              [-87.7265, 41.881],
+              [-87.7265, 41.8805]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cluster_id": 3,
+        "lot_count": 4,
+        "total_sqft": 12500,
+        "zoning": "RT-4",
+        "tier": "shovel-ready",
+        "addresses": [
+          "4501 W WASHINGTON BLVD",
+          "4503 W WASHINGTON BLVD",
+          "4505 W WASHINGTON BLVD",
+          "4507 W WASHINGTON BLVD"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-87.6145, 41.7785],
+              [-87.6142, 41.7785],
+              [-87.6142, 41.779],
+              [-87.6145, 41.779],
+              [-87.6145, 41.7785]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cluster_id": 4,
+        "lot_count": 7,
+        "total_sqft": 21875,
+        "zoning": "RS-3",
+        "tier": "zoning-change-needed",
+        "addresses": [
+          "8001 S MARYLAND AVE",
+          "8003 S MARYLAND AVE",
+          "8005 S MARYLAND AVE",
+          "8007 S MARYLAND AVE",
+          "8009 S MARYLAND AVE",
+          "8011 S MARYLAND AVE",
+          "8013 S MARYLAND AVE"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-87.6355, 41.8445],
+              [-87.6352, 41.8445],
+              [-87.6352, 41.845],
+              [-87.6355, 41.845],
+              [-87.6355, 41.8445]
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "cluster_id": 5,
+        "lot_count": 11,
+        "total_sqft": 34375,
+        "zoning": "RT-4",
+        "tier": "shovel-ready",
+        "addresses": [
+          "3801 S MICHIGAN AVE",
+          "3803 S MICHIGAN AVE",
+          "3805 S MICHIGAN AVE",
+          "3807 S MICHIGAN AVE",
+          "3809 S MICHIGAN AVE",
+          "3811 S MICHIGAN AVE",
+          "3813 S MICHIGAN AVE",
+          "3815 S MICHIGAN AVE",
+          "3817 S MICHIGAN AVE",
+          "3819 S MICHIGAN AVE",
+          "3821 S MICHIGAN AVE"
+        ]
+      }
+    }
+  ]
+}
