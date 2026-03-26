@@ -16,9 +16,13 @@
  * cryptic network error.
  */
 
-const CELESTRAK_URL =
-  'https://celestrak.org/NORAD/elements/gp.php?GROUP=gnss&FORMAT=json';
+const CELESTRAK_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=gnss&FORMAT=json';
 const TLE_CACHE_TTL_SECONDS = 12 * 60 * 60; // 12 hours
+
+// Validate a GitHub PAT by checking the authenticated user's identity.
+// Only users in ALLOWED_USERS may access protected endpoints.
+const GITHUB_USER_URL = 'https://api.github.com/user';
+const ALLOWED_USERS = ['RexGoliath1'];
 
 export default {
   async fetch(request, env, ctx) {
@@ -26,6 +30,10 @@ export default {
 
     if (url.pathname === '/api/tle/gnss') {
       return handleTleRequest(request, ctx);
+    }
+
+    if (url.pathname === '/api/gnss/live') {
+      return handleGnssLive(request, env);
     }
 
     // All other requests: serve static site assets.
@@ -80,6 +88,69 @@ async function handleTleRequest(request, ctx) {
   // waitUntil: cache.put runs after the response is sent — don't block the caller.
   ctx.waitUntil(cache.put(cacheKey, response.clone()));
   return response;
+}
+
+async function handleGnssLive(request, env) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    return jsonError(403, 'Authentication required');
+  }
+
+  // Validate the GitHub PAT against the repo.
+  const valid = await validateGitHubPat(authHeader);
+  if (!valid) {
+    return jsonError(403, 'Invalid or expired token');
+  }
+
+  // Local dev fallback — no R2 binding available in `wrangler dev` without
+  // a real bucket. Serve a local fixture instead.
+  if (!env.GNSS_DATA) {
+    try {
+      const res = await fetch('http://localhost:8765/constellation_fixture.json');
+      if (!res.ok) {
+        return jsonError(503, `Local fixture returned HTTP ${res.status}`);
+      }
+      const body = await res.text();
+      return new Response(body, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store',
+        },
+      });
+    } catch (err) {
+      return jsonError(503, `Local fixture fetch failed: ${err.message}`);
+    }
+  }
+
+  // Fetch live data from R2.
+  const obj = await env.GNSS_DATA.get('constellation.json');
+  if (!obj) {
+    return jsonError(404, 'Data not available');
+  }
+
+  const body = await obj.text();
+  return new Response(body, {
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+async function validateGitHubPat(authHeader) {
+  try {
+    const res = await fetch(GITHUB_USER_URL, {
+      headers: {
+        Authorization: authHeader,
+        'User-Agent': 'vimsite-worker',
+      },
+    });
+    if (res.status !== 200) return false;
+    const user = await res.json();
+    return ALLOWED_USERS.includes(user.login);
+  } catch {
+    return false;
+  }
 }
 
 function jsonError(status, message) {
